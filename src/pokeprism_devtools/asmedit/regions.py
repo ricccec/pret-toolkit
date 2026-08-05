@@ -13,7 +13,9 @@ Measured, not assumed: of the 331 vanilla maps that have a text block, 331 put
 their texts before the event header; of polished's 461, all 461 put them after.
 Zero exceptions in either tree, and the two trees never agree. So the order is
 declared data (:class:`Layout`), the same way `MapShape` declares the dimension
-macro's argument order.
+macro's argument order — and **the declarations themselves live with the
+adapter that makes them**, in `hacks/vanilla/shapes.py`, because only the mount
+side of the seam may know a hack by name. This module holds the mechanism.
 
 The cost of getting this wrong is why it is measured rather than reasoned. A
 writer that appends a text block "just before the event header" is correct in
@@ -86,14 +88,9 @@ class Layout:
 
     @property
     def texts_first(self) -> bool:
-        """Do the texts precede the event header? Vanilla yes, polished no."""
+        """Do the texts precede the event header? The one question the rest of
+        this module asks its layout, and the whole of the fork."""
         return self.order.index(TEXTS) < self.order.index(EVENTS)
-
-
-#: The two trees, measured. Named rather than inlined so a reader can see that
-#: the difference is exactly one thing.
-VANILLA = Layout((SCRIPTS, TEXTS, EVENTS))
-POLISHED = Layout((EVENTS, SCRIPTS, TEXTS))
 
 
 @dataclass(frozen=True)

@@ -35,6 +35,14 @@ from pokeprism_devtools.asmedit import regions as R  # noqa: E402
 VANILLA = Path.home() / "code/pokecrystal"
 POLISHED = Path.home() / "code/polishedcrystal"
 
+# The two layouts, declared here rather than imported. `asmedit/` is product A
+# and holds the mechanism; *which* order a named tree uses is a fact about that
+# tree and lives with the adapter (`hacks/vanilla/shapes.py`), which an A test
+# may not reach. So this file states the two orders it is testing against — the
+# same two, spelled out where the reader of the test can see them.
+VANILLA_LAYOUT = R.Layout((R.SCRIPTS, R.TEXTS, R.EVENTS))
+POLISHED_LAYOUT = R.Layout((R.EVENTS, R.SCRIPTS, R.TEXTS))
+
 _failures = 0
 
 
@@ -149,7 +157,7 @@ Odd_MapEvents:
 def test_hermetic() -> None:
     print("hermetic — the probe, broken on purpose")
 
-    v = R.spans(_VANILLA_MAP, R.VANILLA)
+    v = R.spans(_VANILLA_MAP, VANILLA_LAYOUT)
     lines = _VANILLA_MAP.splitlines()
     check("vanilla: EVENTS is the closing header, not the def_scene_scripts "
           "block at the top of the file",
@@ -172,7 +180,7 @@ def test_hermetic() -> None:
           "db 0, 0 ; filler" in "\n".join(
               lines[v[R.EVENTS].start:v[R.EVENTS].end]))
 
-    p = R.spans(_POLISHED_MAP, R.POLISHED)
+    p = R.spans(_POLISHED_MAP, POLISHED_LAYOUT)
     plines = _POLISHED_MAP.splitlines()
     check("polished: EVENTS comes first",
           p[R.EVENTS].start < p[R.SCRIPTS].start < p[R.TEXTS].start)
@@ -182,21 +190,21 @@ def test_hermetic() -> None:
     check("polished: TEXTS runs to end of file",
           p[R.TEXTS].end == len(plines), str(p[R.TEXTS].end))
 
-    e = R.spans(_NO_TEXTS, R.VANILLA)
+    e = R.spans(_NO_TEXTS, VANILLA_LAYOUT)
     check("no texts: TEXTS exists and is empty, not absent",
           R.TEXTS in e and e[R.TEXTS].empty and e[R.TEXTS].lines == 0)
     check("no texts: the empty TEXTS sits at the event header, not at EOF",
           e[R.TEXTS].start == e[R.EVENTS].start,
           f"{e[R.TEXTS].start} vs {e[R.EVENTS].start}")
 
-    o = R.spans(_ODD_LABEL, R.VANILLA)
+    o = R.spans(_ODD_LABEL, VANILLA_LAYOUT)
     olines = _ODD_LABEL.splitlines()
     check("a text block is found by its `text` macro, not its label's name",
           o[R.TEXTS].start == olines.index("UnnamedGreeting:"),
           f"TEXTS starts at {o[R.TEXTS].start}")
 
     try:
-        R.spans("SomeFile:\n\tdb 0\n", R.VANILLA)
+        R.spans("SomeFile:\n\tdb 0\n", VANILLA_LAYOUT)
         check("a file with no event header is refused", False, "no refusal")
     except R.RegionError as exc:
         check("a file with no event header is refused", "map file" in str(exc))
@@ -270,10 +278,10 @@ def test_falsify(root: Path, right: R.Layout, wrong: R.Layout,
 
 if __name__ == "__main__":
     test_hermetic()
-    test_real(VANILLA, R.VANILLA, "vanilla")
-    test_real(POLISHED, R.POLISHED, "polished")
+    test_real(VANILLA, VANILLA_LAYOUT, "vanilla")
+    test_real(POLISHED, POLISHED_LAYOUT, "polished")
     print("falsification — is the layout doing any work?")
-    test_falsify(VANILLA, R.VANILLA, R.POLISHED, "vanilla")
-    test_falsify(POLISHED, R.POLISHED, R.VANILLA, "polished")
+    test_falsify(VANILLA, VANILLA_LAYOUT, POLISHED_LAYOUT, "vanilla")
+    test_falsify(POLISHED, POLISHED_LAYOUT, VANILLA_LAYOUT, "polished")
     print(f"\n{'FAILURES: ' + str(_failures) if _failures else 'all ok'}")
     sys.exit(1 if _failures else 0)

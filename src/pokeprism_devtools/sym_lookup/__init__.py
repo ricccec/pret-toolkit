@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
-"""Query the pokeprism .sym file.
+"""Query a built pret ROM's .sym file by label or address.
 
 Usage:
     sym-lookup LABEL                 # exact match → prints address
     sym-lookup --addr BB:AAAA        # reverse: address → label(s) at or before
     sym-lookup --prefix STR          # all labels starting with STR
     sym-lookup --search STR          # case-insensitive substring search
+    sym-lookup --rom NAME LABEL      # pick which build, when a tree makes several
     sym-lookup --region SRAM STR     # filter prefix/search results by region
                                      # (regions: ROM0, ROMX, VRAM, SRAM, WRAM0,
                                      #  WRAMX, OAM, IO, HRAM, ECHO, UNUSED)
 
 If LABEL is given but no exact match exists, falls back to substring search.
 
-The .sym file is auto-located via the build artifacts. Use --debug to query
-the debug ROM's .sym instead of the release ROM's.
+The .sym file is auto-located beside whichever ROM the tree has built. A tree
+that builds several (pokecrystal builds five) is asked with `--rom`, naming one
+of the targets its `Makefile` lists; with no `--rom`, the first one on disk
+wins. Which build carries symbols is a fact about a hack and not about pret, so
+this tool does not guess it.
 """
 
 from __future__ import annotations
@@ -27,7 +31,7 @@ from ..shared import paths, symfile
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="prism-sym",
-        description="Query the pokeprism .sym file by label or address.",
+        description="Query a built ROM's .sym file by label or address.",
     )
     p.add_argument("query", nargs="?", help="label to look up (exact, then substring)")
     p.add_argument("-a", "--addr", help="reverse lookup: BB:AAAA")
@@ -40,9 +44,10 @@ def main(argv: list[str] | None = None) -> int:
         "WRAM0, WRAMX, OAM, IO, HRAM, ECHO, UNUSED)",
     )
     p.add_argument(
-        "--debug",
-        action="store_true",
-        help="use the debug ROM's .sym instead of the release one",
+        "--rom",
+        metavar="NAME",
+        help="which built ROM's .sym to read, e.g. pokecrystal11_debug.gbc "
+             "(default: the first one the Makefile lists that is on disk)",
     )
     p.add_argument(
         "-n",
@@ -54,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     try:
-        sym_path = paths.sym_path(debug=args.debug)
+        sym_path = paths.find_built_sym(prefer=(args.rom,) if args.rom else ())
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2

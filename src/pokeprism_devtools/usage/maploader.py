@@ -24,7 +24,8 @@ def _load(args: argparse.Namespace) -> tuple[MapFile, Path]:
                 print(f"error: {p}: file not found", file=sys.stderr)
                 sys.exit(2)
         else:
-            p = paths.map_path(debug=getattr(args, "debug", False))
+            want = getattr(args, "rom", None)
+            p = paths.find_built_map(prefer=(want,) if want else ())
     except (paths.RepoNotFound, FileNotFoundError) as e:
         print(f"error: {e}", file=sys.stderr)
         sys.exit(2)
@@ -45,6 +46,6 @@ def _fill_cartridge_banks(mp: MapFile, map_path: Path) -> None:
     rom = map_path.with_suffix(".gbc")
     if not rom.exists():
         return
-    total = paths.rom_bank_count(rom)
+    total = paths.count_rom_banks(rom)
     if total > 0:
         mp.fill_rom_banks(total)

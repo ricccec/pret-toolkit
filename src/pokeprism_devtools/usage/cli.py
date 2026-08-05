@@ -18,7 +18,9 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="prism-usage",
         description="Analyze RGBDS link-map bank usage.",
     )
-    p.add_argument("--debug", action="store_true", help="use debug ROM's .map")
+    p.add_argument("--rom", metavar="NAME",
+                   help="which built ROM's .map to read (default: the first one "
+                        "the Makefile lists that is on disk)")
     p.add_argument("--map", metavar="PATH", help="override auto-located .map file")
 
     sub = p.add_subparsers(dest="cmd")

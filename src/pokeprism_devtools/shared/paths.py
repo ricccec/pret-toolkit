@@ -9,77 +9,142 @@ and all three trees this repo reads carry both (measured 2026-08-05: pokecrystal
 polishedcrystal, pokeprism). It will still accept any other pret-shaped
 checkout, which is the intent — this module knows about *pret*, not about a hack.
 
-**Except that it does not, yet.** :func:`rom_path` hardcodes prism's two ROM
-filenames and prism's two make targets, so every function below that reaches
-through it — :func:`sym_path`, :func:`map_path`, :func:`sav_path` — resolves
-nothing on a pokecrystal tree. That makes `prism-sym`, an entry point of the
-library this file belongs to, prism-only in practice. Named in
-`tests/test_products.py::KNOWN_LEAKS` so it cannot spread quietly, and scheduled
-into Phase 5; the neutral answer already exists at
-`hacks/vanilla/play.py::_roms`, which reads the `Makefile`'s `roms :=` list
-instead of guessing.
+**Which ROM, and why that is two questions.** A tree's *candidates* are read
+from its `Makefile`, because a target name is a ROM filename and `make` is the
+only thing that knows both. Which candidate a caller *wants* is the caller's
+business and never this module's: the three trees measured on 2026-08-05 do not
+agree on the question, let alone the answer.
+
+    prism      roms := pokeprism.gbc pokeprism_nodebug.gbc
+    vanilla    roms := \\ (five ROMs, continued over six lines)
+    polished   no `roms :=` at all — make assembles the name from NAME/VERSION
+
+**And no textual rule over those three finds "the debug build".** Prism inverts
+the convention: `pokeprism.gbc` *is* the debug ROM and `pokeprism_nodebug.gbc`
+is the plain one, so a name test is right in vanilla, absent in polished and
+backwards in prism. That preference is a hack's knowledge and crosses the seam
+as declared data — :data:`hacks.prism.roms.DEBUG_ROM`, passed in as `prefer`.
+This module offers the list and resolves a choice; it does not have opinions.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
-
 
 class RepoNotFound(RuntimeError):
     pass
 
 
-def repo_root(start: Path | None = None) -> Path:
+#: The `Makefile` assignment listing every ROM `make` can build. One logical
+#: line, sometimes spread over several physical ones with trailing backslashes.
+_ROMS_ASSIGNMENT = re.compile(r"^\s*roms\s*:=")
+
+_ROM_NAME = re.compile(r"\S+\.gbc")
+
+
+def find_repo_root(start: Path | None = None) -> Path:
     """Walk up from `start` (or cwd) until we find the Makefile."""
     p = (start or Path.cwd()).resolve()
     for candidate in [p, *p.parents]:
         if (candidate / "Makefile").exists() and (candidate / "main.asm").exists():
             return candidate
     raise RepoNotFound(
-        f"Could not find pokeprism repo root from {p} — no Makefile + main.asm "
+        f"Could not find a pret repo root from {p} — no Makefile + main.asm "
         "found in any parent directory."
     )
 
 
-def rom_path(root: Path | None = None, *, debug: bool = False,
-             fallback: bool = True) -> Path:
-    """Return the path to the built ROM. Prefers the requested build and, by
-    default, falls back to the other if the requested one is missing.
+def read_built_roms(root: Path | None = None) -> tuple[str, ...]:
+    """Every ROM this tree can build, in the `Makefile`'s own order.
 
-    **`fallback=False` if you just built one of them.** The fallback exists for a
-    reader — `prism-usage` wants whichever ROM is lying around and either will do.
-    It is wrong for anybody who *chose* a target: build `prism` while an old
-    `pokeprism_nodebug.gbc` is still on disk and a falling-back caller will hand
-    back the nodebug ROM, so you would patch a save against one game and play the
-    other, with your new map missing from it and nothing on screen to say why.
+    Read from source rather than guessed, so the list cannot drift from what
+    `make` will accept — and so a tool serves a tree it has never been told
+    about. The `Makefile`'s order is the tree author's own preference, and the
+    first entry is what a caller with no opinion gets.
+
+    **A tree with no `roms :=` falls back to what is on disk**, which is
+    polishedcrystal: its ROM name is assembled by make from `$(NAME)`,
+    `$(MODIFIERS)` and `$(VERSION)`, so there is no list to read and the only
+    evidence is the `.gbc` a build left behind. That makes the answer weaker
+    there — a ROM that exists rather than a target that could — and the
+    weakness is the honest one, because the alternative is inventing a name.
+
+    An unreadable `Makefile` (a tree mid-edit, a binary file) yields `()`: "I
+    cannot see the build", which callers degrade around. Cheap enough — one
+    small file, scanned to the block's end — to re-read every call rather than
+    cache a file a person may be editing.
     """
-    root = root or repo_root()
-    wanted = root / ("pokeprism.gbc" if debug else "pokeprism_nodebug.gbc")
-    other = root / ("pokeprism_nodebug.gbc" if debug else "pokeprism.gbc")
-    if wanted.exists():
-        return wanted
-    if fallback and other.exists():
-        return other
-    target = "prism" if debug else "nodebug"
+    root = root or find_repo_root()
+    out: list[str] = []
+    collecting = False
+    for raw in _read_makefile_lines(root):
+        if _ROMS_ASSIGNMENT.match(raw):
+            collecting = True
+        if collecting:
+            out += _ROM_NAME.findall(raw)
+            if not raw.rstrip().endswith("\\"):
+                break
+    if out:
+        return tuple(out)
+    return tuple(sorted(p.name for p in root.glob("*.gbc")))
+
+
+def _read_makefile_lines(root: Path) -> list[str]:
+    try:
+        return (root / "Makefile").read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return []
+
+
+def find_built_rom(root: Path | None = None, *,
+                   prefer: tuple[str, ...] = (), fallback: bool = True) -> Path:
+    """Resolve one built ROM: the first of `prefer` on disk, else the first
+    candidate on disk.
+
+    `prefer` names ROM filenames, in the caller's order of preference — the
+    caller's, not the `Makefile`'s. A caller with no opinion passes nothing and
+    gets whatever is lying around, which is what a reader wants.
+
+    **`fallback=False` if you just built one of them.** The fallback exists for
+    a reader — `prism-usage` wants whichever ROM is there and either will do. It
+    is wrong for anybody who *chose* a target: build one while a stale sibling
+    is still on disk and a falling-back caller hands back the sibling, so you
+    would patch a save against one game and play the other, with your new map
+    missing from it and nothing on screen to say why.
+    """
+    root = root or find_repo_root()
+    # `fallback=False` means the caller's list is the *whole* list. Appending
+    # the candidates to it and then refusing afterwards would be no refusal at
+    # all: the stale sibling is a candidate too, and it is the thing being
+    # refused.
+    candidates = read_built_roms(root)
+    for name in (prefer if prefer and not fallback else (*prefer, *candidates)):
+        if (rom := root / name).exists():
+            return rom
+
+    if prefer and not fallback:
+        raise FileNotFoundError(
+            f"No ROM at {root / prefer[0]}. Build it first.")
+    known = ", ".join(candidates) if candidates else "none that this Makefile names"
     raise FileNotFoundError(
-        f"No ROM at {wanted}. Run `make {target}` first."
-        if not fallback else
-        f"No ROM found. Expected {wanted} or {other}. Run `make nodebug` "
-        "or `make prism` first."
-    )
+        f"No built ROM in {root}. Run `make` first — this tree builds: {known}.")
 
 
-def sym_path(root: Path | None = None, *, debug: bool = False,
-             fallback: bool = True) -> Path:
-    """Return the path to the .sym file matching the available ROM."""
-    return _sibling_artifact(rom_path(root, debug=debug, fallback=fallback), ".sym")
+def find_built_sym(root: Path | None = None, *,
+             prefer: tuple[str, ...] = (), fallback: bool = True) -> Path:
+    """The `.sym` beside the resolved ROM."""
+    return _find_sibling_artifact(
+        find_built_rom(root, prefer=prefer, fallback=fallback), ".sym")
 
 
-def map_path(root: Path | None = None, *, debug: bool = False) -> Path:
-    return _sibling_artifact(rom_path(root, debug=debug), ".map")
+def find_built_map(root: Path | None = None, *,
+             prefer: tuple[str, ...] = ()) -> Path:
+    """The `.map` beside the resolved ROM."""
+    return _find_sibling_artifact(find_built_rom(root, prefer=prefer), ".map")
 
 
-def rom_bank_count(rom: Path) -> int:
+def count_rom_banks(rom: Path) -> int:
     """Total number of 16 KiB ROM banks the cartridge declares — i.e. what the
     hardware sees, including the trailing padding banks rgbfix appends.
 
@@ -98,12 +163,7 @@ def rom_bank_count(rom: Path) -> int:
         return 0
 
 
-def sav_path(root: Path | None = None, *, debug: bool = False) -> Path:
-    """Path to the .sav next to the ROM. May or may not exist yet."""
-    return rom_path(root, debug=debug).with_suffix(".sav")
-
-
-def _sibling_artifact(rom: Path, suffix: str) -> Path:
+def _find_sibling_artifact(rom: Path, suffix: str) -> Path:
     candidate = rom.with_suffix(suffix)
     if not candidate.exists():
         raise FileNotFoundError(

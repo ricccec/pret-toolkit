@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         sym_path = paths.find_built_sym(prefer=(args.rom,) if args.rom else ())
-    except FileNotFoundError as e:
+    except (paths.RepoNotFound, FileNotFoundError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 

@@ -107,7 +107,7 @@ def find_built_rom(root: Path | None = None, *,
     gets whatever is lying around, which is what a reader wants.
 
     **`fallback=False` if you just built one of them.** The fallback exists for
-    a reader — `prism-usage` wants whichever ROM is there and either will do. It
+    a reader — `pret-usage` wants whichever ROM is there and either will do. It
     is wrong for anybody who *chose* a target: build one while a stale sibling
     is still on disk and a falling-back caller hands back the sibling, so you
     would patch a save against one game and play the other, with your new map

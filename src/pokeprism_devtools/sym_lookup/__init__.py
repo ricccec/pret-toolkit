@@ -30,7 +30,7 @@ from ..shared import paths, symfile
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        prog="prism-sym",
+        prog="pret-sym",
         description="Query a built ROM's .sym file by label or address.",
     )
     p.add_argument("query", nargs="?", help="label to look up (exact, then substring)")

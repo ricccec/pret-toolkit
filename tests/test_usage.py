@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Characterization tests for prism-usage: every subcommand's exact output.
+"""Characterization tests for pret-usage: every subcommand's exact output.
 
 Hermetic — a synthetic .map in a temp dir, no ROM/build.
 

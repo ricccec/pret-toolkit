@@ -1,4 +1,4 @@
-"""The `prism-usage` command line."""
+"""The `pret-usage` command line."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .reports import (
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="prism-usage",
+        prog="pret-usage",
         description="Analyze RGBDS link-map bank usage.",
     )
     p.add_argument("--rom", metavar="NAME",

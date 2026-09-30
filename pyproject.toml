@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pret-toolkit"
+version = "0.5.0"
+description = "Read, edit, build and run a pret/RGBDS Game Boy Gen-2 disassembly"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+pret-sym   = "pokeprism_devtools.sym_lookup:main"
+pret-usage = "pokeprism_devtools.usage:main"
+
+# `namespaces = true` is the whole split: `pokeprism_devtools` is a
+# PEP 420 namespace package with no `__init__.py`, so these
+# distributions install side by side and answer as one package.
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true

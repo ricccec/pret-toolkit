@@ -4,12 +4,19 @@
 a Gen-2 `.sav` so the game boots with the player standing on a chosen map, why
 it is more than writing four bytes, where stock pokecrystal genuinely diverges
 from prism, and the two sprite-VRAM bugs that were latent in the patcher until a
-cross-map playtest surfaced them. It is drawn from the code in
-`src/pokeprism_devtools/shared/overworld/` and `hacks/vanilla/savefile.py`; when
-they disagree, the code wins and this doc is stale.
+cross-map playtest surfaced them.
 
-For the user-facing `start-state` flow see [`devtools.md`](devtools.md); for
-project status see [`STATE.md`](STATE.md). This doc is the engine-level *why*.
+**The engine half is here; the callers are not.** This distribution ships
+`shared/overworld/`, which does the rebuild, and it is deliberately hack-neutral:
+it takes the tree's dialect as declared data and knows no hack's name. The code
+that calls it, and the per-tree dialects it is called with, live in the adapters
+— `hacks/vanilla/savefile.py` in `crystal-studio` and
+`hacks/prism/mapformat.py` in `pokeprism-devtools`. Paths below are given with
+that in mind, and named as `<repo>:<path>` where they cross out of this one.
+When code and doc disagree, the code wins and this doc is stale.
+
+This doc is the engine-level *why*. The user-facing `start-state` flow is in
+`pokeprism-devtools`' `docs/devtools.md`.
 
 ---
 
@@ -44,7 +51,8 @@ A patch that stands you on a map must therefore **reconstruct what
 
 ## The two halves of a patch
 
-`Save.stand_on` (`hacks/vanilla/savefile.py`) does the whole job:
+`Save.stand_on` (`crystal-studio:hacks/vanilla/savefile.py`) does the whole
+job — a caller of this distribution, not part of it:
 
 1. **Position** — write the four bytes into their saved SRAM mirror.
 2. **Map rebuild** — call the shared `rebuild_map` (needs the ROM to read the
@@ -332,7 +340,8 @@ allocator and end to end through `apply_state`.
 The readers are engine-general, but the *dialect* they read differs per tree and
 crosses the seam as declared data (`MapFormat`). Stock's values are the core's
 **defaults** (the base engine, the right calibration for the next family tree);
-prism overrides them in `hacks/prism/mapformat.py::PRISM_FORMAT`:
+prism overrides them in
+`pokeprism-devtools:hacks/prism/mapformat.py::PRISM_FORMAT`:
 
 | field | stock (default) | prism |
 |---|---|---|

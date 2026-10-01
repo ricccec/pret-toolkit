@@ -29,6 +29,7 @@ This module offers the list and resolves a choice; it does not have opinions.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -53,6 +54,93 @@ def find_repo_root(start: Path | None = None) -> Path:
         f"Could not find a pret repo root from {p} — no Makefile + main.asm "
         "found in any parent directory."
     )
+
+
+#: Where a checkout is looked for when nothing says. Each is a directory that
+#: may hold one, tried in order; `*` matches a single grouping directory, which
+#: is the common `~/code/<org>/<repo>` habit. Deliberately not a user's own
+#: layout: a default that names one developer's directories is a default that
+#: works for one developer.
+#:
+#: **Every entry is anchored at `~`, never at the working directory.** A
+#: relative base resolves against wherever the process happened to start, so the
+#: same call answers differently run from a repo root and from its `tests/`, and
+#: the wrong answer is an absent tree — which reads as a skip, which reads as a
+#: pass. A checkout somewhere else is what the environment variable is for.
+CHECKOUT_BASES = ("~/code", "~/src", "~", "~/code/*", "~/src/*",
+                  "~/Projects/*", "~/projects/*")
+
+
+def checkout_env_var(folder: str) -> str:
+    """The environment variable that overrides where `folder` is looked for.
+
+    Derived rather than declared, so a caller naming a checkout never has to
+    know a second name for it, and a tree this library has never heard of gets
+    an override on the same terms as the three it has.
+    """
+    return folder.upper() + "_TREE"
+
+
+def checkout_search_path(folder: str) -> tuple[Path, ...]:
+    """Every directory `find_checkout` would consider for `folder`, in order.
+
+    Exposed so a caller that found nothing can say where it looked. A skip that
+    names no path is indistinguishable from a pass.
+    """
+    override = os.environ.get(checkout_env_var(folder))
+    if override:
+        return (Path(override).expanduser(),)
+    found: list[Path] = []
+    for base in CHECKOUT_BASES:
+        if "*" in base:
+            head, _, tail = base.partition("/*")
+            found.extend(sorted(parent / tail.lstrip("/") / folder
+                                for parent in Path(head).expanduser().glob("*")
+                                if parent.is_dir()))
+        else:
+            found.append(Path(base).expanduser() / folder)
+    return tuple(found)
+
+
+def explain_missing_checkout(folder: str) -> str:
+    """One line saying `folder` was not found, and how to say where it is.
+
+    For the message a caller prints when it declines to run. A skip that names
+    nothing cannot be told from a pass by anyone reading the output later, and
+    this repo has already shipped a run that reported a known-red test as fixed
+    because of one.
+    """
+    env = checkout_env_var(folder)
+    looked = checkout_search_path(folder)
+    if os.environ.get(env):
+        return f"no pret checkout at {looked[0]}, which {env} names"
+    shown = ", ".join(str(path) for path in looked[:3])
+    more = f", and {len(looked) - 3} other places" if len(looked) > 3 else ""
+    return (f"no {folder} checkout — set {env}=/path/to/{folder}, "
+            f"or put one at {shown}{more}")
+
+
+def find_checkout(folder: str) -> Path:
+    """A pret checkout named `folder`, from its variable or a conventional place.
+
+    Answers the question `find_repo_root` does not: that one asks *which tree am
+    I standing in*, this one asks *where on this machine is the tree called
+    `pokecrystal`*. A tool that reads several trees at once can never be standing
+    in all of them.
+
+    The variable wins outright and is returned unexamined, so a path a caller set
+    explicitly fails by its own name rather than being silently passed over for
+    a different tree that happens to be well-formed. Otherwise the conventional
+    locations are tried in order and the first with the pret signature wins.
+
+    Returns a path that may not exist, because the caller — usually a test that
+    must skip rather than fail — needs something to name either way.
+    """
+    candidates = checkout_search_path(folder)
+    for candidate in candidates:
+        if (candidate / "Makefile").exists() and (candidate / "main.asm").exists():
+            return candidate
+    return candidates[0]
 
 
 def read_built_roms(root: Path | None = None) -> tuple[str, ...]:

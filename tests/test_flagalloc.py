@@ -27,11 +27,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from pokeprism_devtools.shared import paths  # noqa: E402
 from pokeprism_devtools.asmedit import flagalloc as F  # noqa: E402
 
-VANILLA = Path.home() / "code/pokecrystal"
-POLISHED = Path.home() / "code/polishedcrystal"
-PRISM = Path.home() / "code/pokeprism"
+VANILLA = paths.find_checkout("pokecrystal")
+POLISHED = paths.find_checkout("polishedcrystal")
+PRISM = paths.find_checkout("pokeprism")
 
 _failures = 0
 

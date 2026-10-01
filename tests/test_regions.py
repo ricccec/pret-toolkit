@@ -30,10 +30,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from pokeprism_devtools.shared import paths  # noqa: E402
 from pokeprism_devtools.asmedit import regions as R  # noqa: E402
 
-VANILLA = Path.home() / "code/pokecrystal"
-POLISHED = Path.home() / "code/polishedcrystal"
+VANILLA = paths.find_checkout("pokecrystal")
+POLISHED = paths.find_checkout("polishedcrystal")
 
 # The two layouts, declared here rather than imported. `asmedit/` is product A
 # and holds the mechanism; *which* order a named tree uses is a fact about that

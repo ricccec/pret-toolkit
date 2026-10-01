@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pret-toolkit"
 version = "0.5.0"
-description = "Read, edit, build and run a pret/RGBDS Game Boy Gen-2 disassembly"
+description = "Python tools to read, edit, build and run a pret/RGBDS Gen-2 disassembly"
 requires-python = ">=3.10"
 dependencies = []
 

@@ -39,8 +39,7 @@ POLISHED = paths.find_checkout("polishedcrystal")
 #: The checkout each tree is nicknamed after, because the skip message has to
 #: name the folder and the environment variable a reader can actually set —
 #: "vanilla" is what this file calls it, not what it is called on disk.
-FOLDER = {"vanilla": "pokecrystal", "polished": "polishedcrystal",
-          "prism": "pokeprism"}
+FOLDER = {"vanilla": "pokecrystal", "polished": "polishedcrystal"}
 
 # The two layouts, declared here rather than imported. `asmedit/` is product A
 # and holds the mechanism; *which* order a named tree uses is a fact about that

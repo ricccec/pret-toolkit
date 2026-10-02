@@ -30,15 +30,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from pretkit.shared import paths  # noqa: E402
 from pretkit.asmedit import flagalloc as F  # noqa: E402
 
+#: The two trees whose flag file this module models. Both are read, not one:
+#: they agree on the format and disagree on every number in it, so a rule
+#: fitted to either alone is caught by the other. A tree that uses a different
+#: scheme is refused, and `test_hermetic` asserts that from a fixture — no
+#: checkout of such a tree is needed, and none is named here.
 VANILLA = paths.find_checkout("pokecrystal")
 POLISHED = paths.find_checkout("polishedcrystal")
-PRISM = paths.find_checkout("pokeprism")
 
 #: The checkout each tree is nicknamed after, because the skip message has to
 #: name the folder and the environment variable a reader can actually set —
 #: "vanilla" is what this file calls it, not what it is called on disk.
-FOLDER = {"vanilla": "pokecrystal", "polished": "polishedcrystal",
-          "prism": "pokeprism"}
+FOLDER = {"vanilla": "pokecrystal", "polished": "polishedcrystal"}
 
 _failures = 0
 
@@ -102,6 +105,32 @@ _FULL = """\
 
 	const_next 2
 DEF NUM_EVENTS EQU const_value
+"""
+
+
+#: No `const_def` anywhere: one unbroken run whose free slots are a const
+#: literally *named* `skip`, redefined over and over. That is a real reservation
+#: scheme and not the one this module models, so the only correct answer is to
+#: refuse it. Half-parsing is the failure worth naming — the file would read as
+#: a single nameless bucket and the allocator would report free slots that are
+#: not free, which is an itemball the player can farm.
+_UNBUCKETED = """\
+; wEventFlags bit flags
+
+	const EVENT_FIRST
+	const skip
+	const skip
+	const EVENT_SECOND
+DEF NUM_EVENTS EQU const_value
+"""
+
+#: No buckets *and* no consts, which reaches a different guard than
+#: `_UNBUCKETED` does. Both refuse, and the two messages both contain the words
+#: `const_def`, so a check that only looks for that string cannot tell which
+#: fired — and one of the two guards could then be deleted unnoticed.
+_NOT_AN_ENUM = """\
+; wEventFlags bit flags
+DEF NUM_EVENTS EQU 0
 """
 
 
@@ -206,6 +235,26 @@ def test_hermetic(tmp: Path) -> None:
         check("a caption that disagrees with the count is refused",
               "actually free" in str(exc))
 
+    # The boundary of what `load` claims to understand, asserted without a
+    # checkout: a scheme it does not model must raise rather than return a
+    # plausible answer. A real tree of this shape exists, but the property is
+    # about the grammar, so it is proved here where every clone can run it.
+    try:
+        F.load(_write(tmp / "unbucketed", _UNBUCKETED))
+        check("an unbucketed run is refused, not half-parsed", False,
+              "parsed a file this allocator does not model")
+    except F.FlagError as exc:
+        check("an unbucketed run is refused, not half-parsed",
+              "a const before any const_def" in str(exc), str(exc))
+
+    try:
+        F.load(_write(tmp / "notanenum", _NOT_AN_ENUM))
+        check("a file with no buckets at all is refused", False,
+              "parsed a file with nothing in it")
+    except F.FlagError as exc:
+        check("a file with no buckets at all is refused",
+              "has no const_def" in str(exc), str(exc))
+
 
 def test_real(root: Path, name: str, expect: dict[str, int]) -> None:
     """Loading at all means every caption in the file was reproduced."""
@@ -232,23 +281,6 @@ def test_real(root: Path, name: str, expect: dict[str, int]) -> None:
           f"{len(ef.buckets)} buckets)")
 
 
-def test_prism_refused() -> None:
-    """prism has no `const_def` — it is one unbroken run with named `skip`
-    placeholders, and `hacks/prism/eventflags` is its allocator. This one must
-    not half-understand that file."""
-    print("prism — a different reservation scheme entirely")
-    if not (PRISM / "constants/event_flags.asm").exists():
-        print(f"  --   skipping: {paths.explain_missing_checkout('pokeprism')}")
-        return
-    try:
-        F.load(PRISM)
-        check("prism's unbucketed file is refused, not half-parsed", False,
-              "parsed a file this allocator does not model")
-    except F.FlagError as exc:
-        check("prism's unbucketed file is refused, not half-parsed",
-              "const_def" in str(exc), str(exc))
-
-
 if __name__ == "__main__":
     import tempfile
 
@@ -264,6 +296,5 @@ if __name__ == "__main__":
     # boundary through: polished reported "0 free across 1 buckets" and the
     # test agreed with it, because it was asked to check nothing at all.
     test_real(POLISHED, "polished", {"(start)": 29})
-    test_prism_refused()
     print(f"\n{'FAILURES: ' + str(_failures) if _failures else 'all ok'}")
     sys.exit(1 if _failures else 0)

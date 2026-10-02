@@ -10,10 +10,10 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
-pret-sym   = "pokeprism_devtools.sym_lookup:main"
-pret-usage = "pokeprism_devtools.usage:main"
+pret-sym   = "pretkit.sym_lookup:main"
+pret-usage = "pretkit.usage:main"
 
-# `namespaces = true` is the whole split: `pokeprism_devtools` is a
+# `namespaces = true` is the whole split: `pretkit` is a
 # PEP 420 namespace package with no `__init__.py`, so these
 # distributions install side by side and answer as one package.
 [tool.setuptools.packages.find]

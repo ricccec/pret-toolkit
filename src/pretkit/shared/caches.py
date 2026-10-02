@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import sys
 
-_PACKAGE = "pokeprism_devtools"
+_PACKAGE = "pretkit"
 
 
 def clear() -> int:

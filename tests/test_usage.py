@@ -31,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from pokeprism_devtools import usage  # noqa: E402
+from pretkit import usage  # noqa: E402
 
 _failures = 0
 

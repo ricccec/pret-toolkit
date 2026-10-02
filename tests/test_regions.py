@@ -30,8 +30,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from pokeprism_devtools.shared import paths  # noqa: E402
-from pokeprism_devtools.asmedit import regions as R  # noqa: E402
+from pretkit.shared import paths  # noqa: E402
+from pretkit.asmedit import regions as R  # noqa: E402
 
 VANILLA = paths.find_checkout("pokecrystal")
 POLISHED = paths.find_checkout("polishedcrystal")

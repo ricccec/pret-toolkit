@@ -1,7 +1,7 @@
 # pret-toolkit
 
 Python tools to read, edit, build and run a [pret](https://github.com/pret)
-Game Boy Gen-2 disassembly — pokecrystal, Polished Crystal, Prism, or your own
+Game Boy Gen-2 disassembly — Pokémon G/S/C, Polished Crystal, Prism, or your own
 hack of one.
 
 It knows about *pret*, not about any one hack. A repo root is recognised by its
@@ -57,13 +57,22 @@ python scripts/run-tests.py
 
 Plain scripts, not pytest: each prints `ok`/`FAIL` lines and exits non-zero.
 
-Several read a **real disassembly** rather than a fixture, because the thing
-being checked is whether the reader agrees with an actual tree. Point the suite
-at yours with `POKECRYSTAL_TREE`, `POLISHEDCRYSTAL_TREE` and `POKEPRISM_TREE`,
-or check them out somewhere conventional (`~/code/<name>`, `~/src/<name>`, or one
-grouping directory below either). Without a tree those checks are reported as
-skipped rather than passed, and the runner counts them so a green run cannot
-hide an empty one.
+Several read a **real disassembly** rather than a fixture, because what is being
+checked is whether the reader agrees with an actual tree. All of them are
+optional: with no tree the suite is green and the checks that did not run are
+counted, so a pass cannot quietly mean nothing happened.
+
+To run them, point the suite at a checkout you have —
+
+| variable | what the suite does with it |
+|---|---|
+| `POKECRYSTAL_TREE` | reads a stock pokecrystal: flag buckets, map regions |
+| `POLISHEDCRYSTAL_TREE` | the same questions against a second family tree, so a rule that only fits one is caught |
+| `POKEPRISM_TREE` | **a counter-example, not a supported target** — Prism reserves event flags in a scheme this library deliberately does not model, and one test proves the parser *refuses* that file rather than half-reading it |
+
+— or check them out somewhere conventional: `~/code/<name>`, `~/src/<name>`, or
+one grouping directory below either (`~/code/<anything>/<name>`), which is how
+the suite finds them with nothing configured.
 
 ## Licence
 

@@ -32,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from pretkit import usage  # noqa: E402
+from pretkit.shared.mapfile import MapFile  # noqa: E402
 
 _failures = 0
 
@@ -95,6 +96,64 @@ def _run(argv: list[str]) -> tuple[int, str, str]:
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
         rc = usage.main(argv)
     return rc, _scrub(out.getvalue()), err.getvalue()
+
+
+#: Every section spelling the three real trees use, which the synthetic map above
+#: uses none of: `($0001 byte)` singular, and a section occupying nothing written
+#: both as `($0000 bytes)` and, by an older rgblink, as `(0 bytes)`. Reading only
+#: the plural dropped one section per affected bank, so `pret-usage` refused two
+#: of the three trees while this file stayed green. Capacity is $4000 and the
+#: sections hold four bytes, so TOTAL EMPTY is $3ffc.
+_SPELLINGS = """ROM0 bank #0:
+  SECTION: $0000 ($0000 bytes) ["NULL"]
+  SECTION: $c000 (0 bytes) ["Version check"]
+  SECTION: $0000-$0002 ($0003 bytes) ["three bytes"]
+  SECTION: $0018-$0018 ($0001 byte) ["one byte"]
+  TOTAL EMPTY: $3ffc bytes
+"""
+
+#: A spelling no rgblink has ever printed. The parser must say it cannot read the
+#: line, at the line — the alternative is what used to happen: the section is
+#: skipped in silence and the bank's own total disagrees several lines later,
+#: blaming arithmetic for a sentence nobody could parse.
+_UNREADABLE_SECTION = """ROM0 bank #0:
+  SECTION: $0000 .. $0002 (3 bytes) ["a spelling from the future"]
+  TOTAL EMPTY: $3ffd bytes
+"""
+
+
+def test_section_spellings(tmp: Path) -> None:
+    print("\nthe section spellings a real link map uses")
+    good = tmp / "spellings.map"
+    good.write_text(_SPELLINGS)
+    bank = MapFile.parse(good).banks[("ROM0", 0)]
+    check("a one-byte section is counted, singular wording and all",
+          bank.used == 4, f"used={bank.used}")
+    check("and a section that occupies nothing adds nothing",
+          [sec.name for sec in bank.sections] == ["three bytes", "one byte"],
+          str([sec.name for sec in bank.sections]))
+    check("so the bank agrees with the link map's own total",
+          bank.free == 0x3ffc, f"free={bank.free:#x}")
+
+    unreadable = tmp / "unreadable.map"
+    unreadable.write_text(_UNREADABLE_SECTION)
+    try:
+        MapFile.parse(unreadable)
+        check("a SECTION line in no known spelling is refused", False,
+              "parsed a line it cannot read")
+    except ValueError as exc:
+        check("a SECTION line in no known spelling is refused",
+              "does not read" in str(exc), str(exc))
+
+    off = tmp / "off-by-three.map"
+    off.write_text(_SPELLINGS.replace("TOTAL EMPTY: $3ffc", "TOTAL EMPTY: $3fff"))
+    try:
+        MapFile.parse(off)
+        check("a total that disagrees with the sections is refused", False,
+              "accepted a bank that does not add up")
+    except ValueError as exc:
+        check("a total that disagrees with the sections is refused",
+              "expected free" in str(exc), str(exc))
 
 
 def test_bank_selectors() -> None:
@@ -281,6 +340,7 @@ def main() -> int:
         new.write_text(_NEW_MAP)
 
         test_bank_selectors()
+        test_section_spellings(tmp)
         test_commands(old, new)
 
     print()

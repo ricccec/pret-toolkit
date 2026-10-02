@@ -18,9 +18,21 @@ REGION_CAPACITY: dict[str, int] = {
 }
 
 _RE_BANK = re.compile(r"^(\w+) bank #(\d+):$")
+#: `bytes?` and `\$?`, not `bytes` and `$`: rgblink writes "1 byte" singular, and
+#: older versions print a size in decimal. Requiring the plural dropped one
+#: section per affected bank — three in pokecrystal's ROM0, one in each of eleven
+#: polishedcrystal banks — and that surfaced as a free-space mismatch at the
+#: bank's last line rather than as a line this parser could not read.
 _RE_SECTION = re.compile(
     r'^\s+SECTION: \$([0-9a-fA-F]+)-\$([0-9a-fA-F]+)'
-    r' \(\$[0-9a-fA-F]+ bytes\) \["(.+)"\]$'
+    r' \(\$?[0-9a-fA-F]+ bytes?\) \["(.+)"\]$'
+)
+
+#: A section occupying nothing is printed as one address with no range, so it has
+#: no span to measure and adds nothing to a bank's total. Matched rather than
+#: ignored, because an unrecognised `SECTION:` line is refused below.
+_RE_EMPTY_SECTION = re.compile(
+    r'^\s+SECTION: \$[0-9a-fA-F]+ \(\$?0+ bytes?\) \["(.+)"\]$'
 )
 _RE_TOTAL_EMPTY = re.compile(r"^\s+TOTAL EMPTY: \$([0-9a-fA-F]+) bytes?$")
 
@@ -87,6 +99,14 @@ class MapFile:
                         size=end - start + 1,
                     ))
                     continue
+
+                if _RE_EMPTY_SECTION.match(line):
+                    continue
+
+                if line.lstrip().startswith("SECTION:"):
+                    raise ValueError(
+                        f"{path.name}:{lineno}: a SECTION line in a spelling "
+                        f"this parser does not read: {line.strip()}")
 
                 m = _RE_TOTAL_EMPTY.match(line)
                 if m:

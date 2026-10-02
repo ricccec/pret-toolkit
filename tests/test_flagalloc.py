@@ -34,6 +34,12 @@ VANILLA = paths.find_checkout("pokecrystal")
 POLISHED = paths.find_checkout("polishedcrystal")
 PRISM = paths.find_checkout("pokeprism")
 
+#: The checkout each tree is nicknamed after, because the skip message has to
+#: name the folder and the environment variable a reader can actually set —
+#: "vanilla" is what this file calls it, not what it is called on disk.
+FOLDER = {"vanilla": "pokecrystal", "polished": "polishedcrystal",
+          "prism": "pokeprism"}
+
 _failures = 0
 
 
@@ -205,7 +211,7 @@ def test_real(root: Path, name: str, expect: dict[str, int]) -> None:
     """Loading at all means every caption in the file was reproduced."""
     print(f"{name} — the real flag file")
     if not (root / "constants/event_flags.asm").exists():
-        check(f"{name} tree is present", False, str(root))
+        print(f"  --   skipping: {paths.explain_missing_checkout(FOLDER[name])}")
         return
     try:
         ef = F.load(root)
@@ -232,7 +238,7 @@ def test_prism_refused() -> None:
     not half-understand that file."""
     print("prism — a different reservation scheme entirely")
     if not (PRISM / "constants/event_flags.asm").exists():
-        check("prism tree is present", False, str(PRISM))
+        print(f"  --   skipping: {paths.explain_missing_checkout('pokeprism')}")
         return
     try:
         F.load(PRISM)

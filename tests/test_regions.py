@@ -36,6 +36,12 @@ from pretkit.asmedit import regions as R  # noqa: E402
 VANILLA = paths.find_checkout("pokecrystal")
 POLISHED = paths.find_checkout("polishedcrystal")
 
+#: The checkout each tree is nicknamed after, because the skip message has to
+#: name the folder and the environment variable a reader can actually set —
+#: "vanilla" is what this file calls it, not what it is called on disk.
+FOLDER = {"vanilla": "pokecrystal", "polished": "polishedcrystal",
+          "prism": "pokeprism"}
+
 # The two layouts, declared here rather than imported. `asmedit/` is product A
 # and holds the mechanism; *which* order a named tree uses is a fact about that
 # tree and lives with the adapter (`hacks/vanilla/shapes.py`), which an A test
@@ -221,7 +227,7 @@ def test_real(root: Path, layout: R.Layout, name: str) -> None:
     maps = sorted((root / "maps").glob("*.asm"))
     print(f"{name} — {len(maps)} real map files")
     if not maps:
-        check(f"{name} tree is present", False, str(root))
+        print(f"  --   skipping: {paths.explain_missing_checkout(FOLDER[name])}")
         return
 
     bad_order, overlap, header_out, failed = [], [], [], []
@@ -262,6 +268,9 @@ def test_falsify(root: Path, right: R.Layout, wrong: R.Layout,
     layout has to go visibly wrong — if it does not, the fork is decorative and
     every region this module reports is luck."""
     maps = sorted((root / "maps").glob("*.asm"))[:120]
+    if not maps:
+        print(f"  --   skipping: {paths.explain_missing_checkout(FOLDER[name])}")
+        return
     disagree = 0
     for p in maps:
         text = p.read_text(errors="replace")

@@ -1,11 +1,15 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pret-toolkit"
 version = "0.5.0"
 description = "Python tools to read, edit, build and run a pret/RGBDS Gen-2 disassembly"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "ricccec", email = "65662894+ricccec@users.noreply.github.com"}]
 requires-python = ">=3.10"
 dependencies = []
 
@@ -16,6 +20,10 @@ pret-usage = "pretkit.usage:main"
 # `namespaces = true` is the whole split: `pretkit` is a
 # PEP 420 namespace package with no `__init__.py`, so these
 # distributions install side by side and answer as one package.
+[project.urls]
+Source = "https://github.com/ricccec/pret-toolkit"
+Issues = "https://github.com/ricccec/pret-toolkit/issues"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = true

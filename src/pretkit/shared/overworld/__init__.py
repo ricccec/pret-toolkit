@@ -4,9 +4,9 @@ When a save is patched to stand somewhere new, the game's `MAPSETUP_CONTINUE`
 path loads the *coordinates* but not the *map*: it leaves `wScreenSave`,
 `wObjectStructs` and `wMapObjects` describing wherever you were before, so the
 tiles and NPCs around the new position render as the old map's. This package is
-the arithmetic that rebuilds them — the same reconstruction prism worked out
-during `prism-dev`'s development, lifted out so every tree that patches a save
-reaches one implementation of it instead of copying it into each `play.py`.
+the arithmetic that rebuilds them, kept in one place so every tree that
+patches a save reaches the same implementation instead of copying it into each
+adapter.
 
 Everything here is engine-general Gen-2, not any one hack's: it takes a tree's
 own ROM bytes and symbols (`SymFile`) and its resolved `.sav` offsets as

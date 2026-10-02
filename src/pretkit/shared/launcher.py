@@ -1,9 +1,9 @@
-"""SameBoy launch helpers for prism-dev.
+"""Launch SameBoy so the caller holds the emulator's own process handle.
 
 Resolves the path to the SameBoy binary so `subprocess.Popen` tracks the
-actual app process — not the `open` launcher utility on macOS. The handle
-matters for the dev-server TUI's Re-launch: `terminate()` can only kill
-a real PID, not a launcher that already exited.
+actual app process — not the `open` launcher utility on macOS. The handle is
+the point: `terminate()` can only kill a real PID, and a launcher that has
+already exited leaves the emulator running with nothing holding it.
 
 Resolution order:
   1. `$SAMEBOY_BIN` env var (absolute path to the binary)

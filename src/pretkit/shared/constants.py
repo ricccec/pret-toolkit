@@ -123,8 +123,9 @@ def _purged(path: Path) -> frozenset[str]:
     A small thing that would have shipped a wrong list: polished's
     `sprite_data_constants.asm` ends with `PURGE PAL_OW_YELLOW, PAL_OW_WHITE`,
     so those two symbols do not survive the file that appears to define them.
-    Offering a constant the assembler will then reject is the one failure
-    `hacks/prism/edits/offers.py` calls worse than offering no list at all.
+    Offering a constant the assembler will then reject is worse than offering
+    no list at all: an empty list is read as "ask someone else", while a wrong
+    one is acted on and fails at build time.
     """
     out: set[str] = set()
     for line in path.read_text(errors="replace").split("\n"):

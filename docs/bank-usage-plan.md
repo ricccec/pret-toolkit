@@ -1,8 +1,15 @@
-# Plan: `prism-usage` — RGBDS link-map analyzer
+# Plan: the RGBDS link-map analyzer, shipped as `pret-usage`
 
-**Status: planned.** Spec only; no code yet. Sub-plan under
-[`devtools-plan.md`](devtools-plan.md). Supersedes the one-liner
-`prism-usage` row in that doc's priority table.
+**Status: ✓ shipped, and this document is the argument rather than the
+reference.** It was written before the tool existed and before the repository
+split, so it reads as a proposal and uses the names of that moment: the command
+it calls `prism-usage` ships as **`pret-usage`**, `prism-sym` as **`pret-sym`**,
+and the `src/pokeprism_devtools/` paths below are the monorepo's. The sub-plan
+it was filed under lives in another repository now and is not linked from here.
+
+**For how to use the command, read [`commands.md`](commands.md).** What is kept
+here is why it exists, which subcommands were deliberately dropped and why, and
+what was measured about the link map — none of which the reference repeats.
 
 ## Context — why this is needed
 

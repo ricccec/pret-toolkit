@@ -6,8 +6,9 @@ process (`shared/caches.py` is the long version). That is right, and it is fast,
 and it is why you can hold down an arrow key.
 
 But the repo is not ours alone. You edit a constant in another window, pull a
-branch, run `prism-mapfit` — and the studio goes on believing what it read an hour
-ago, with total confidence. The danger is not that a dropdown is out of date. It
+branch, run a tool that rewrites a constants file — and a long-lived process
+goes on believing what it read an hour ago, with total confidence. The danger
+is not that a dropdown is out of date. It
 is that **a write is checked against the wrong repo**: `scaffold.require()` really
 does refuse a sprite that does not exist, but it asks a cache, so a sprite that
 *stopped* existing sails through and lands in a map as a dangling reference.

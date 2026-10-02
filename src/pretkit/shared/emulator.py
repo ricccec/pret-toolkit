@@ -2,11 +2,11 @@
 
 Pulled out of `playtest.py` because it is the one part of the playtest story that
 is nobody's dialect: launching a Game Boy ROM and killing the last window is the
-same whether the ROM is prism's or a stock pokecrystal's. `playtest.py` also
-patches prism's save, and reaches most of `hacks/prism` to do it, so anything that
-imported it for the emulator alone would drag that whole tree in. Here the only
-neighbour is `launcher`, which knows how to find SameBoy and nothing about maps —
-so a family play adapter can hold an emulator without importing prism.
+same whichever hack built the ROM. Patching a save is not: that reaches deep
+into one hack's layout, so anything importing the playtest module for the
+emulator alone would drag an adapter in with it. Here the only neighbour is
+`launcher`, which knows how to find SameBoy and nothing about maps — so any
+play adapter can hold an emulator without importing another.
 """
 
 from __future__ import annotations

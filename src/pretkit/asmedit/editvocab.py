@@ -7,12 +7,12 @@ same discipline whether the entry is prism's thirteen-argument `person_event` or
 a family `generictrainer`. What differs between hacks is the layout those
 arguments sit in, and none of that lives here.
 
-The prism-bound editor that *uses* this vocabulary — `MapEdit`, the field-index
-constants (`PALETTE`, `S_X`, `W_Y`), the `edit_*` functions — is in
-`hacks/prism/objedit`, because those encode prism's layout and no other tree's.
-This module is kept in `asmedit/` and free of any `hacks.prism` import on purpose:
-a family editor may one day reuse the discipline, and it must be able to without
-dragging the prism parser stack across the seam.
+What this module deliberately does **not** hold is the layout: field-index
+constants, the per-entry editor, the `edit_*` functions. Those encode one
+hack's argument order and belong to that hack's adapter. Keeping them out is
+what lets a second adapter reuse this discipline without dragging the first
+one's parser stack across the seam, and it is why nothing here imports an
+adapter.
 """
 
 from __future__ import annotations

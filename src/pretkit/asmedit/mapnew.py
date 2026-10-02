@@ -40,7 +40,7 @@ the grid and the constant are written in the same breath from the same two
 numbers, so a swap is perfectly self-consistent and produces a map that is
 sideways.
 
-One entry point taking primitives and a dialect, so a `prism-mapadd` CLI would
+One entry point taking primitives and a dialect, so a command-line caller would
 be `argparse` -> :func:`add_map` -> `apply_edits`.
 """
 

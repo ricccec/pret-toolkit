@@ -22,9 +22,9 @@ agree on the question, let alone the answer.
 **And no textual rule over those three finds "the debug build".** Prism inverts
 the convention: `pokeprism.gbc` *is* the debug ROM and `pokeprism_nodebug.gbc`
 is the plain one, so a name test is right in vanilla, absent in polished and
-backwards in prism. That preference is a hack's knowledge and crosses the seam
-as declared data — :data:`hacks.prism.roms.DEBUG_ROM`, passed in as `prefer`.
-This module offers the list and resolves a choice; it does not have opinions.
+backwards in prism. Which ROM a caller wants is therefore that hack's knowledge
+and crosses the seam as declared data, arriving here as `prefer`. This module
+offers the list and resolves a choice; it does not have opinions.
 """
 
 from __future__ import annotations
@@ -77,8 +77,12 @@ def checkout_env_var(folder: str) -> str:
     Derived rather than declared, so a caller naming a checkout never has to
     know a second name for it, and a tree this library has never heard of gets
     an override on the same terms as the three it has.
+
+    Anything that cannot appear in an environment variable's name becomes `_`:
+    a checkout called `shiny-gold` would otherwise be overridden by
+    `$SHINY-GOLD_TREE`, which no shell can set.
     """
-    return folder.upper() + "_TREE"
+    return re.sub(r"\W", "_", folder).upper() + "_TREE"
 
 
 def checkout_search_path(folder: str) -> tuple[Path, ...]:

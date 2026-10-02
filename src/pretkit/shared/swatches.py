@@ -1,8 +1,8 @@
 """One coordinate tile's colour, looked up — the renderer both grids share.
 
-Building the swatches is each adapter's own business: prism averages real pixels
-(`hacks/prism/sprites/swatches.py`), the family reads a palette without decoding a tile
-(`hacks/vanilla/swatches.py`). What they hand back has the same shape — 256
+Building the swatches is each adapter's own business, and they do not agree on
+how: one averages the real pixels of a decoded tile, another reads a palette
+without decoding anything. What they hand back has the same shape — 256
 blocks, each four quadrant colours — and drawing one tile from it is the same
 lookup whichever tree filled it. That lookup is here, in `shared/`, so the grid
 does not reach into one adapter to draw another's map.

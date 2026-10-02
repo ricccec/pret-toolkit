@@ -34,9 +34,9 @@ of that line, because the one way to guarantee they agree is to give them no
 opportunity to disagree.
 
 One entry point, taking only primitives and a dialect — no `Action`, no
-`Session`, nothing from `studio/` — so a future `prism-resize` CLI is
+`Session`, nothing from `studio/` — so a command-line caller is
 `argparse` -> :func:`resize` -> `apply_edits(root, change.changes,
-dry_run=...)`, the same shape as `prism-newmap`.
+dry_run=...)`, the same shape every edit in this package takes.
 """
 
 from __future__ import annotations

@@ -2,9 +2,8 @@
 
 An itemball that has no flag is an itemball the player can farm: the flag is
 what remembers the ball was picked up, so the adder cannot skip it. But the
-allocator prism already has (`hacks/prism/eventflags`) cannot read either family
-tree's file — it raises on the first `const_def` it sees, and vanilla's is on
-line 3. The two trees reserve headroom a different way, and vanilla partitions
+allocator written for an unbucketed tree cannot read either family tree's
+file — it raises on the first `const_def` it sees, and vanilla's is on line 3. The two trees reserve headroom a different way, and vanilla partitions
 its flag space besides:
 
     prism       one unbroken run + 807 `const skip` — a const literally *named*

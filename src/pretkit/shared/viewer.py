@@ -1,4 +1,4 @@
-"""Shared helpers for the image-rendering CLIs (prism-mapview, prism-gfx):
+"""What a command that renders a Gen-2 image needs before and after drawing:
 time-of-day name maps, tileset-id parsing, and opening images in the OS viewer.
 """
 

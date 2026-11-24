@@ -53,27 +53,35 @@ the map rebuild.
 ## Tests
 
 ```bash
-python scripts/run-tests.py
+pret-test               # the whole suite, against the pinned game trees
+pret-test --worktree    # the same, against your own checkouts, edits and all
 ```
 
 Plain scripts, not pytest: each prints `ok`/`FAIL` lines and exits non-zero.
+`pret-test` ships with `pret-toolkit`, so it is on `$PATH` once this repo is
+installed; run it from anywhere inside the repo.
 
-Several read a **real disassembly** rather than a fixture, because what is being
-checked is whether the reader agrees with an actual tree. All of them are
-optional: with no tree the suite is green and the checks that did not run are
-counted, so a pass cannot quietly mean nothing happened.
+Several read a **real disassembly** rather than a fixture, because what is being checked
+is whether the reader agrees with an actual tree.
+Each tree is pinned to the one commit the tests were written against, in
+`pyproject.toml` under `[tool.pret-test.upstreams]`:
 
-To run them, point the suite at a checkout you have —
+- `pokecrystal` — [pret/pokecrystal](https://github.com/pret/pokecrystal) at `31880ea`
+- `polishedcrystal` — [Rangi42/polishedcrystal](https://github.com/Rangi42/polishedcrystal) at `a79dd2a`
 
-| variable | what the suite does with it |
-|---|---|
-| `POKECRYSTAL_TREE` | reads a stock pokecrystal: flag buckets, map regions |
-| `POLISHEDCRYSTAL_TREE` | the same questions against a second family tree, so a rule that only fits one is caught |
-| `POKEPRISM_TREE` | **a counter-example, not a supported target** — Prism reserves event flags in a scheme this library deliberately does not model, and one test proves the parser *refuses* that file rather than half-reading it |
+`pret-test` checks out a clean copy of each pinned commit into
+`~/.cache/pretkit/` — taken from your own checkout when it has the commit, from
+the URL otherwise — so neither your edits nor your branch change the result.
+Your checkout is found the way every command here finds one: `$<NAME>_TREE`
+(`$POKECRYSTAL_TREE`, say), or a conventional place such as `~/code/<name>`.
+`pret-test --fetch` fetches them and prints where they are. The copies hold no
+build output, so checks that need a ROM skip until you run `make` in one. A
+skipped check is counted and reported rather than passed, and `--strict` fails
+the run on one.
 
-— or check them out somewhere conventional: `~/code/<name>`, `~/src/<name>`, or
-one grouping directory below either (`~/code/<anything>/<name>`), which is how
-the suite finds them with nothing configured.
+`--worktree` is for seeing what your own edits do. A test that fails there
+because of an edit in *your* tree is a fact about your checkout: record it in
+`.known-red.json`, which is git-ignored and counts only in `--worktree` runs.
 
 ## Disclaimer
 

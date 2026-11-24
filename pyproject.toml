@@ -16,6 +16,7 @@ dependencies = []
 [project.scripts]
 pret-sym   = "pretkit.sym_lookup:main"
 pret-usage = "pretkit.usage:main"
+pret-test  = "pretkit.testing.runner:main"
 
 # `namespaces = true` is the whole split: `pretkit` is a
 # PEP 420 namespace package with no `__init__.py`, so these
@@ -27,3 +28,13 @@ Issues = "https://github.com/ricccec/pret-toolkit/issues"
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = true
+
+[tool.pret-test]
+
+[tool.pret-test.upstreams.pokecrystal]
+url = "https://github.com/pret/pokecrystal"
+commit = "31880ea20ea44f79ebd459b1e735ae1f15db1671"
+
+[tool.pret-test.upstreams.polishedcrystal]
+url = "https://github.com/Rangi42/polishedcrystal"
+commit = "a79dd2a36d00449b4961a119a1098e3aa318364f"

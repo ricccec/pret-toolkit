@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
-"""Tests for `scripts/run-tests.py` — the thing that runs everything else.
+"""Tests for `pret-test` — the thing that runs every repo's suite.
 
-A runner that miscounts is worse than no runner: every other test in this repo
-is read through it, and a classification bug reports a green suite while
-something is broken. It also carries the four facts a person would otherwise
-have to remember — clear the bytecode caches, give `test_lib` a game-tree cwd,
-two reds are known, `test_studio_tui` flakes in a batch — and a fact that stops
-being enforced is a fact nobody is told about.
+A runner that miscounts is worse than no runner: every other test is read
+through it, and a classification bug reports a green suite while something is
+broken. It also carries facts a person would otherwise have to remember — clear
+the bytecode caches, known reds are asserted both ways, a flaky test is re-run
+alone, the game trees are the pinned ones — and a fact that stops being enforced
+is a fact nobody is told about.
 
-So each of those is seeded here and checked to be caught. **The runner's own
-`EXPECTED_RED` and `FLAKY_IN_BATCH` lists are patched, never read**, because this
-test asserts the *mechanism*: the day `test_maplint` is fixed and its row
-deleted, this file must not go red with it.
-
-Nothing is written into `tests/`. The runner's `TESTS` directory is pointed at
-a temporary one, so the seeded scripts a real run would collect never exist
-beside the real tests — which also means `main()` can be driven end to end
-without the outer runner picking up the bait.
+So each is seeded here and checked to be caught, against a **throwaway repo**: a
+temp directory with its own `pyproject.toml` and `tests/`, and a throwaway game
+tree with two commits and an uncommitted edit. Nothing here reads this repo's
+own suite table, so fixing a real known red can never turn this file red.
 
     python tests/test_runner.py
 """
@@ -24,13 +19,16 @@ without the outer runner picking up the bait.
 from __future__ import annotations
 
 import contextlib
-import importlib.util
 import io
+import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from pretkit.shared import paths
+from pretkit.testing import runner, suite as suite_module
+from pretkit.testing.results import FAIL, FIXED, OK, RED, Result, classify_exit_code
 
 _failures = 0
 
@@ -42,31 +40,12 @@ def check(label: str, cond: bool, detail: str = "") -> None:
         _failures += 1
 
 
-def load_runner():
-    """Import `scripts/run-tests.py`, whose name is not an identifier."""
-    spec = importlib.util.spec_from_file_location(
-        "run_tests", REPO / "scripts" / "run-tests.py")
-    module = importlib.util.module_from_spec(spec)
-    # @dataclass resolves its annotations by looking the module up in
-    # sys.modules; without this the class body raises on AttributeError: None.
-    sys.modules["run_tests"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def write_test_script(folder: Path, name: str, body: str) -> Path:
-    path = folder / f"{name}.py"
-    path.write_text(body)
-    return path
-
-
 PASSES = "print('  [OK] seeded')\n"
 FAILS = "import sys\nprint('  [FAIL] seeded')\nsys.exit(1)\n"
 HANGS = "import time\ntime.sleep(60)\n"
 
-#: Fails once, then passes — a batch flake, which is what `test_studio_tui`
-#: does and what the retry exists for. The marker is not a `test_*.py`, so the
-#: runner's own glob never collects it.
+#: Fails once, then passes — a batch flake. The marker is not a `test_*.py`, so
+#: the runner's own glob never collects it.
 FLAKES_ONCE = """
 import sys
 from pathlib import Path
@@ -79,301 +58,209 @@ print('  [FAIL] failed in the batch')
 sys.exit(1)
 """
 
+#: Prints what the tree it finds says about itself, so which tree a test was
+#: shown is observable rather than inferred.
+READS_TREE = """
+from pretkit.shared import paths
+tree = paths.find_checkout("madeupgame")
+version = tree / "VERSION"
+print("version=" + version.read_text().strip() if version.exists() else "  --   skipping: no tree")
+other = paths.find_checkout("unpinnedgame")
+print("unpinned:", "found" if (other / "main.asm").exists() else "absent")
+"""
 
-def run_runner_main(runner, tests_dir: Path, argv: list[str]) -> tuple[int, str]:
-    """Drive `main()` over `tests_dir` instead of the real one, and capture
-    both what it returned and what it printed — the report is half the
+
+def make_repo(root: Path, table: str, tests: dict[str, str]) -> Path:
+    (root / "tests").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(f"[project]\nname = 'seeded'\n\n{table}")
+    for name, body in tests.items():
+        (root / "tests" / f"{name}.py").write_text(body)
+    return root
+
+
+def run_main(argv: list[str]) -> tuple[int, str]:
+    """Drive `main()` and capture what it printed — the report is half the
     behaviour, and a status nobody prints is a status nobody acts on."""
-    real_tests, real_argv = runner.TESTS, sys.argv
-    # `main()` refuses to run while a list names a test that is not there, and
-    # pointing it at a seeded directory makes the repo's own names absent. Each
-    # list is narrowed to what this directory holds rather than emptied, so a
-    # name the caller seeded for its own case survives and the repo's does not.
-    real_lists = (runner.FLAKY_IN_BATCH, runner.SLOW, runner.NEEDS_GAME_TREE,
-                  runner.KNOWN_RED, runner.LOCAL_RED)
-    runner.TESTS = tests_dir
-    here = {path.stem for path in tests_dir.glob("test_*.py")}
-    runner.FLAKY_IN_BATCH = runner.FLAKY_IN_BATCH & here
-    runner.SLOW = runner.SLOW & here
-    runner.NEEDS_GAME_TREE = {k: v for k, v in runner.NEEDS_GAME_TREE.items()
-                              if k in here}
-    runner.KNOWN_RED = {k: v for k, v in runner.KNOWN_RED.items() if k in here}
-    runner.LOCAL_RED = {k: v for k, v in runner.LOCAL_RED.items() if k in here}
-    sys.argv = ["run-tests.py", *argv]
     buffer = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(buffer):
-            code = runner.main()
-    finally:
-        runner.TESTS, sys.argv = real_tests, real_argv
-        (runner.FLAKY_IN_BATCH, runner.SLOW, runner.NEEDS_GAME_TREE,
-         runner.KNOWN_RED, runner.LOCAL_RED) = real_lists
+    with contextlib.redirect_stdout(buffer):
+        code = runner.main(argv)
     return code, buffer.getvalue()
 
 
-def test_classification(runner) -> None:
+def git(tree: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(tree), *args], check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def make_game_tree(root: Path) -> tuple[Path, str]:
+    """A pret-shaped repo whose first commit says `pinned`, whose second says
+    `newer`, and whose working copy says `edited`. Returns it and commit one."""
+    root.mkdir(parents=True)
+    git(root, "init", "-q")
+    git(root, "config", "user.email", "seed@example.invalid")
+    git(root, "config", "user.name", "seed")
+    for name in ("Makefile", "main.asm"):
+        (root / name).write_text("")
+    (root / "VERSION").write_text("pinned\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "one")
+    first = git(root, "rev-parse", "HEAD")
+    (root / "VERSION").write_text("newer\n")
+    git(root, "commit", "-q", "-am", "two")
+    (root / "VERSION").write_text("edited\n")
+    return root, first
+
+
+def test_classification() -> None:
     """All four corners, and both directions of the known-red list."""
     print("\nclassify_exit_code")
-    check("an unknown test exiting 0 is ok",
-          runner.classify_exit_code("test_x", 0) == runner.OK)
-    check("an unknown test exiting 1 is a FAIL",
-          runner.classify_exit_code("test_x", 1) == runner.FAIL)
-
-    runner.EXPECTED_RED["test_seeded_red"] = "seeded"
-    try:
-        check("a known red exiting 1 is expected",
-              runner.classify_exit_code("test_seeded_red", 1) == runner.RED)
-        check("a known red exiting 0 is FIXED, not silence",
-              runner.classify_exit_code("test_seeded_red", 0) == runner.FIXED)
-    finally:
-        del runner.EXPECTED_RED["test_seeded_red"]
-
-    print("\nwhich statuses fail the run")
-    for status, unexpected in ((runner.FAIL, True), (runner.FIXED, True),
-                               (runner.RED, False), (runner.SKIPPED, False),
-                               (runner.OK, False)):
+    red = {"test_red": "seeded"}
+    check("an unknown test exiting 0 is ok", classify_exit_code("test_x", 0, red) == OK)
+    check("an unknown test exiting 1 is a FAIL", classify_exit_code("test_x", 1, red) == FAIL)
+    check("a known red exiting 1 is expected", classify_exit_code("test_red", 1, red) == RED)
+    check("a known red exiting 0 is FIXED, not silence",
+          classify_exit_code("test_red", 0, red) == FIXED)
+    for status, unexpected in ((FAIL, True), (FIXED, True), (RED, False), (OK, False)):
         check(f"{status} is {'' if unexpected else 'not '}unexpected",
-              runner.Result("x", status, 0.0, "").is_unexpected is unexpected)
+              Result("x", status, 0.0, "").is_unexpected is unexpected)
 
 
-def test_seeded_failure(runner, tmp: Path) -> None:
-    print("\na failing test, end to end")
-    write_test_script(tmp, "test_seeded", FAILS)
-    result = runner.run_one_test(tmp / "test_seeded.py", 30)
-    check("run_one_test reports FAIL", result.status == runner.FAIL)
-    check("and captures its output", "[FAIL] seeded" in result.output)
-
-    code, report = run_runner_main(runner, tmp, ["-k", "seeded"])
-    check("main() exits non-zero", code == 1)
+def test_failures_and_rows(tmp: Path) -> None:
+    print("\na failing test, a fixed row, a hung test")
+    repo = make_repo(tmp / "fails", '[tool.pret-test]\nknown-red = { test_fixed = "seeded" }\n',
+                     {"test_seeded": FAILS, "test_fixed": PASSES, "test_hung": HANGS})
+    code, report = run_main(["--repo", str(repo), "-k", "seeded"])
+    check("a failure exits non-zero", code == 1)
     check("and names the test", "FAIL: test_seeded" in report)
-    check("and prints its output, unasked",
-          "[FAIL] seeded" in report, "a failure nobody can read is a rerun")
+    check("and prints its output, unasked", "[FAIL] seeded" in report)
+
+    code, report = run_main(["--repo", str(repo), "-k", "fixed"])
+    check("a known red that passes fails the run", code == 1)
+    check("and says to delete the row", "delete its row from known-red" in report, report[-200:])
+
+    code, report = run_main(["--repo", str(repo), "-k", "hung", "--timeout", "2"])
+    check("a timeout is a FAIL, not a pass", code == 1 and "after 2s" in report)
 
 
-def test_fixed_row(runner, tmp: Path) -> None:
-    """The direction that rots if it is not asserted: a known red goes green,
-    and the run must fail so somebody deletes the row on purpose."""
-    print("\na known red that starts passing")
-    write_test_script(tmp, "test_seeded", PASSES)
-    runner.EXPECTED_RED["test_seeded"] = "seeded"
-    try:
-        result = runner.run_one_test(tmp / "test_seeded.py", 30)
-        check("reports FIXED, not ok", result.status == runner.FIXED)
-        code, report = run_runner_main(runner, tmp, ["-k", "seeded"])
-        check("main() exits non-zero on it", code == 1)
-        check("and says to delete the row",
-              "delete its row from KNOWN_RED" in report)
-    finally:
-        del runner.EXPECTED_RED["test_seeded"]
-
-
-def test_timeout(runner, tmp: Path) -> None:
-    print("\na hung test")
-    write_test_script(tmp, "test_hung", HANGS)
-    result = runner.run_one_test(tmp / "test_hung.py", 2)
-    check("a timeout is a FAIL, not a pass", result.status == runner.FAIL)
-    check("and says how long it waited", "after 2s" in result.note)
-    (tmp / "test_hung.py").unlink()
-
-
-def test_flaky_retry(runner, tmp: Path) -> None:
-    """The batch/alone rule, driven by a test that genuinely fails once.
-
-    Written because the real flake would not reproduce on demand:
-    `test_studio_tui` passed in the batch on both runs the day the runner was
-    added, so this branch had never executed against a failure.
-    """
-    print("\na test that fails in the batch and passes alone")
-    write_test_script(tmp, "test_flaky", FLAKES_ONCE)
-    real_flaky = runner.FLAKY_IN_BATCH
-    runner.FLAKY_IN_BATCH = {"test_flaky"}
-    try:
-        code, report = run_runner_main(runner, tmp, ["-k", "flaky"])
-        check("the retry is announced, not hidden",
-              "re-running it alone" in report)
-        check("the second answer is the one reported", "[     ok]" in report)
-        check("and it says the batch failure was the flake",
-              "passed alone" in report)
-        check("so the run passes", code == 0)
-
-        print("\nthe same test failing every time")
-        write_test_script(tmp, "test_flaky", FAILS)
-        code, report = run_runner_main(runner, tmp, ["-k", "flaky"])
-        check("a retry that fails too is called real",
-              "failed alone too" in report)
-        check("and the run fails", code == 1)
-    finally:
-        runner.FLAKY_IN_BATCH = real_flaky
-        (tmp / "test_flaky.py").unlink(missing_ok=True)
-        (tmp / "test_flaky.marker").unlink(missing_ok=True)
-
-
-#: Prints its own working directory, so the cwd the runner chose is observable
-#: rather than inferred.
-REPORTS_CWD = "from pathlib import Path\nprint(Path.cwd())\n"
-
-
-def test_game_tree_skip(runner, tmp: Path) -> None:
-    """No game tree is *skipped*, never *passed* — the whole point of the row.
-
-    The needy test is seeded, because the claim is about the runner: a name in
-    `NEEDS_GAME_TREE` skips when the checkout it asks for is absent, and is given
-    that checkout as its cwd when it is present. Pointing this at a real
-    product's file would make it also assert the file is on disk, which no repo
-    owes the runner — and the checkout it names here is deliberately one no hack
-    is called, because the runner must not care which.
-    """
-    print("\nthe game-tree cwd")
-    folder = tmp / "gametree"
-    folder.mkdir()
-    needy = write_test_script(folder, "test_needs_tree", REPORTS_CWD)
-
-    real_find, real_needs = runner.find_game_tree, runner.NEEDS_GAME_TREE
-    runner.NEEDS_GAME_TREE = {"test_needs_tree": "madeupgame"}
-    try:
-        runner.find_game_tree = lambda folder: tmp / "no-such-tree"
-        result = runner.run_one_test(needy, 30)
-        check("an absent tree skips, and does not pass",
-              result.status == runner.SKIPPED, result.status)
-        check("and says which checkout it wanted",
-              "needs a madeupgame checkout" in result.note, result.note)
-
-        # A directory that exists is all the runner asks for; whether it holds a
-        # Makefile is the test's business, not the runner's.
-        stand_in = tmp / "stand-in-tree"
-        stand_in.mkdir()
-        runner.find_game_tree = lambda folder: stand_in
-        result = runner.run_one_test(needy, 30)
-        check("a present tree runs it, and from inside the tree",
-              result.status == runner.OK and str(stand_in) in result.output,
-              f"{result.status}: {result.output.strip()[:60]}")
-    finally:
-        runner.find_game_tree, runner.NEEDS_GAME_TREE = real_find, real_needs
-
-
-def test_local_red_file(runner, tmp: Path) -> None:
-    """A working copy's own reds are read from disk, and a bad file is refused.
-
-    The rows this file holds are the ones that must never be committed: they say
-    a test is expected to fail, which in someone else's clone is a lie that gets
-    their healthy run reported as FIXED. Silently ignoring a malformed file
-    would be the same failure one step earlier — a row you believe is recorded
-    and is not.
-    """
+def test_local_red_is_about_your_checkouts(tmp: Path) -> None:
+    """A `.known-red.json` row forgives a failure in a `--worktree` run, which
+    reads your edited checkouts, and nowhere else: a pinned run never sees
+    those edits, so a red there is a red."""
     print("\nthe local known-red file")
-    real_file = runner.LOCAL_RED_FILE
+    repo = make_repo(tmp / "local", "[tool.pret-test]\n", {"test_drifted": FAILS})
+    (repo / ".known-red.json").write_text('{"test_drifted": "my tree, not yours"}')
+    code, report = run_main(["--repo", str(repo), "--worktree"])
+    check("under --worktree it is an expected red", code == 0 and "known red (local)" in report)
+    code, report = run_main(["--repo", str(repo)])
+    check("in a pinned run it is a failure, and the run says why",
+          code == 1 and "applies to --worktree runs only" in report)
+
+
+def test_flaky_retry(tmp: Path) -> None:
+    print("\na test that fails in the batch and passes alone")
+    repo = make_repo(tmp / "flaky", '[tool.pret-test]\nflaky-in-batch = ["test_flaky"]\n',
+                     {"test_flaky": FLAKES_ONCE})
+    code, report = run_main(["--repo", str(repo)])
+    check("the retry is announced, not hidden", "re-running it alone" in report)
+    check("and the second answer is reported", "passed alone" in report and code == 0)
+
+    (repo / "tests" / "test_flaky.py").write_text(FAILS)
+    code, report = run_main(["--repo", str(repo)])
+    check("a retry that fails too is called real", "failed alone too" in report and code == 1)
+
+
+def test_selection_and_lists(tmp: Path) -> None:
+    print("\nselection, and lists that name absent tests")
+    repo = make_repo(tmp / "select", '[tool.pret-test]\nslow = ["test_slowpoke"]\n',
+                     {"test_alpha": PASSES, "test_beta": PASSES, "test_slowpoke": PASSES})
+    seeded = suite_module.load_suite(repo)
+    every = {p.stem for p in runner.select_test_files(seeded, None, False)}
+    fast = {p.stem for p in runner.select_test_files(seeded, None, True)}
+    check("a full run collects every test file", every == {"test_alpha", "test_beta", "test_slowpoke"})
+    check("--fast drops the slow ones and nothing else", every - fast == {"test_slowpoke"})
+    check("-k filters by filename",
+          [p.stem for p in runner.select_test_files(seeded, "beta", False)] == ["test_beta"])
+
+    typo = make_repo(tmp / "typo", '[tool.pret-test]\nslow = ["test_slowpok"]\n', {"test_a": PASSES})
+    code, report = run_main(["--repo", str(typo)])
+    check("a list naming an absent test refuses to run", code == 2 and "test_slowpok" in report)
+
+    (typo / ".known-red.json").write_text("{not json")
+    (typo / "pyproject.toml").write_text("[tool.pret-test]\n")
+    code, report = run_main(["--repo", str(typo)])
+    check("a malformed .known-red.json refuses rather than reads as empty",
+          code == 2 and "not valid JSON" in report)
+
+
+def test_pinned_trees(tmp: Path) -> None:
+    """The pin is what a test sees — not the checkout's later commit, not its
+    uncommitted edit, not a tree the repo does not pin — and `--worktree` is the
+    one way to see the checkout as it is."""
+    print("\npinned trees")
+    tree, first = make_game_tree(tmp / "checkouts" / "madeupgame")
+    unpinned, _ = make_game_tree(tmp / "checkouts" / "unpinnedgame")
+    table = (f'[tool.pret-test]\n\n[tool.pret-test.upstreams.madeupgame]\n'
+             f'url = "file:///nowhere"\ncommit = "{first}"\n')
+    repo = make_repo(tmp / "pinned", table, {"test_reads_tree": READS_TREE})
+    saved = dict(os.environ)
+    os.environ.update({"PRETKIT_CACHE": str(tmp / "cache"),
+                       "MADEUPGAME_TREE": str(tree), "UNPINNEDGAME_TREE": str(unpinned)})
     try:
-        runner.LOCAL_RED_FILE = tmp / "absent.json"
-        check("an absent file is the normal case, not an error",
-              runner.read_local_red() == {})
+        code, report = run_main(["--repo", str(repo), "-v"])
+        check("the test sees the pinned commit, not a later one or the edit",
+              "version=pinned" in report and "version=newer" not in report
+              and "version=edited" not in report)
+        check("and not a tree its repo does not pin", "unpinned: absent" in report)
+        check("the pin came from the local checkout, not the URL", code == 0)
+        check("and the checkout itself was left alone",
+              (tree / "VERSION").read_text() == "edited\n")
 
-        runner.LOCAL_RED_FILE = tmp / "rows.json"
-        runner.LOCAL_RED_FILE.write_text('{"test_drifted": "my tree, not yours"}')
-        rows = runner.read_local_red()
-        check("a row is read back whole", rows == {"test_drifted": "my tree, not yours"},
-              str(rows))
+        code, report = run_main(["--repo", str(repo), "-v", "--worktree"])
+        check("--worktree shows the checkout as it is, edits and all", "version=edited" in report)
+        check("including trees nobody pinned", "unpinned: found" in report)
 
-        runner.LOCAL_RED_FILE.write_text("{not json")
-        refused = False
-        try:
-            runner.read_local_red()
-        except SystemExit as stop:
-            refused = "not valid JSON" in str(stop)
-        check("a malformed file stops the run rather than reading as empty", refused)
+        bad = f'[tool.pret-test.upstreams.lostgame]\nurl = "file:///nowhere"\ncommit = "{"0" * 40}"\n'
+        (repo / "pyproject.toml").write_text(f"[tool.pret-test]\n\n{bad}")
+        code, report = run_main(["--repo", str(repo), "--fetch"])
+        check("a pin nobody can fetch is named, and fails --fetch",
+              code == 1 and "lostgame@000000000  NOT FETCHED" in report)
+        code, report = run_main(["--repo", str(repo), "--strict"])
+        check("its tree is then absent, which --strict fails on", code == 1 and "--strict" in report)
 
-        runner.LOCAL_RED_FILE.write_text('["test_drifted"]')
-        refused = False
-        try:
-            runner.read_local_red()
-        except SystemExit as stop:
-            refused = "test name -> reason" in str(stop)
-        check("so does a file of the wrong shape", refused)
+        (repo / "pyproject.toml").write_text(table.replace(first, first[:12]))
+        code, report = run_main(["--repo", str(repo)])
+        check("a short SHA is refused", code == 2 and "full 40-character SHA" in report)
     finally:
-        runner.LOCAL_RED_FILE = real_file
-
-    # A tripwire, not a law: a genuine repo-wide red is allowed, and adding one
-    # means editing this line on purpose. That is the same discipline KNOWN_RED
-    # itself runs on — the row that is never re-examined is the one that rots.
-    check("no red is committed yet; add one here deliberately or not at all",
-          runner.KNOWN_RED == {},
-          f"{runner.KNOWN_RED} — if these are true of every clone, say so here")
+        os.environ.clear()
+        os.environ.update(saved)
 
 
-def test_tree_resolution_matches_the_library(runner) -> None:
-    """The runner's own resolver agrees with `shared.paths`, tree for tree.
-
-    The runner carries a second copy on purpose — it must start before anything
-    is installed — and a second copy that is never compared is a fork waiting to
-    happen. Skipped, loudly, where the library is not installed, which is the
-    one situation the duplication exists for.
-    """
-    print("\nthe duplicated tree resolver")
+def test_relative_bases_refused() -> None:
+    print("\n$PRET_CHECKOUT_BASES")
+    saved = os.environ.get(paths.CHECKOUT_BASES_VAR)
+    os.environ[paths.CHECKOUT_BASES_VAR] = "relative/dir"
     try:
-        from pretkit.shared import paths
-    except ModuleNotFoundError:
-        print("  --   skipping: pret-toolkit is not installed, which is the "
-              "case this duplication exists to survive")
-        return
-
-    # Folder names no tree is called, on purpose: what is being compared is
-    # that two resolvers agree for *any* name, not that they agree about the
-    # three this project happens to read.
-    for folder in ("alpha-tree", "beta_tree", "gamma"):
-        mine: Path = runner.find_game_tree(folder)
-        theirs: Path = paths.find_checkout(folder)
-        check(f"{folder}: the runner and the library resolve the same path",
-              mine == theirs, str(mine) if mine == theirs else f"{mine} vs {theirs}")
-
-    check("and look in the same places, in the same order",
-          tuple(runner.TREE_BASES) == tuple(paths.CHECKOUT_BASES),
-          ", ".join(runner.TREE_BASES))
-
-
-def test_selection(runner, tmp: Path) -> None:
-    """Selection, over a seeded `tests/` — so it holds in any repo.
-
-    `TESTS` and `SLOW` are both patched. Reading the real ones would assert that
-    this repo carries the files they name, and `SLOW <= every` is then false in
-    any repo that does not — a fact about the checkout, not about the selection
-    logic under test.
-    """
-    print("\nselection")
-    folder = tmp / "selection"
-    folder.mkdir()
-    seeded = {"test_alpha", "test_beta", "test_slowpoke"}
-    for name in sorted(seeded):
-        write_test_script(folder, name, PASSES)
-
-    real_tests, real_slow = runner.TESTS, runner.SLOW
-    runner.TESTS, runner.SLOW = folder, {"test_slowpoke"}
-    try:
-        every = {p.stem for p in runner.select_test_files(None, False)}
-        fast = {p.stem for p in runner.select_test_files(None, True)}
-        check("a full run collects every test file", every == seeded,
-              f"{sorted(every)} != {sorted(seeded)}")
-        check("a full run collects the slow ones", set(runner.SLOW) <= every)
-        check("--fast drops them", not set(runner.SLOW) & fast)
-        check("and drops nothing else", every - fast == set(runner.SLOW),
-              f"also dropped {sorted(every - fast - set(runner.SLOW))}")
-        check("-k filters by filename",
-              [p.stem for p in runner.select_test_files("beta", False)]
-              == ["test_beta"])
+        paths.read_checkout_bases()
+        refused = False
+    except ValueError as stop:
+        refused = "relative/dir" in str(stop)
     finally:
-        runner.TESTS, runner.SLOW = real_tests, real_slow
+        if saved is None:
+            del os.environ[paths.CHECKOUT_BASES_VAR]
+        else:
+            os.environ[paths.CHECKOUT_BASES_VAR] = saved
+    check("a relative base is refused by name", refused)
 
 
 if __name__ == "__main__":
-    runner = load_runner()
-    test_classification(runner)
+    test_classification()
+    test_relative_bases_refused()
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
-        test_selection(runner, tmp)
-        test_seeded_failure(runner, tmp)
-        test_fixed_row(runner, tmp)
-        test_timeout(runner, tmp)
-        test_flaky_retry(runner, tmp)
-        test_game_tree_skip(runner, tmp)
-        test_local_red_file(runner, tmp)
-    test_tree_resolution_matches_the_library(runner)
+        test_failures_and_rows(tmp)
+        test_local_red_is_about_your_checkouts(tmp)
+        test_flaky_retry(tmp)
+        test_selection_and_lists(tmp)
+        test_pinned_trees(tmp)
     print(f"\n{'FAILURES: ' + str(_failures) if _failures else 'all ok'}")
     sys.exit(1 if _failures else 0)

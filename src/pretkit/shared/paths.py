@@ -70,6 +70,30 @@ def find_repo_root(start: Path | None = None) -> Path:
 CHECKOUT_BASES = ("~/code", "~/src", "~", "~/code/*", "~/src/*",
                   "~/Projects/*", "~/projects/*")
 
+#: Replaces `CHECKOUT_BASES` outright when set: the same syntax, separated by
+#: `os.pathsep`. One variable rather than one per tree, so a caller can hand a
+#: process a whole set of trees — including to code that searches for every
+#: tree at once and so never asks for one by name.
+CHECKOUT_BASES_VAR = "PRET_CHECKOUT_BASES"
+
+
+def read_checkout_bases() -> tuple[str, ...]:
+    """The bases to search: `$PRET_CHECKOUT_BASES` if set, else the defaults.
+
+    Each must be absolute once `~` is expanded, for the reason the defaults
+    are anchored at `~`: a relative base answers differently from every
+    directory a process might start in.
+    """
+    override = os.environ.get(CHECKOUT_BASES_VAR)
+    if not override:
+        return CHECKOUT_BASES
+    bases: tuple[str, ...] = tuple(b for b in override.split(os.pathsep) if b)
+    relative = [b for b in bases if not Path(b).expanduser().is_absolute()]
+    if relative:
+        raise ValueError(f"${CHECKOUT_BASES_VAR} holds relative bases: "
+                         f"{', '.join(relative)}")
+    return bases
+
 
 def checkout_env_var(folder: str) -> str:
     """The environment variable that overrides where `folder` is looked for.
@@ -95,7 +119,7 @@ def checkout_search_path(folder: str) -> tuple[Path, ...]:
     if override:
         return (Path(override).expanduser(),)
     found: list[Path] = []
-    for base in CHECKOUT_BASES:
+    for base in read_checkout_bases():
         if "*" in base:
             head, _, tail = base.partition("/*")
             found.extend(sorted(parent / tail.lstrip("/") / folder
@@ -118,6 +142,9 @@ def explain_missing_checkout(folder: str) -> str:
     looked = checkout_search_path(folder)
     if os.environ.get(env):
         return f"no pret checkout at {looked[0]}, which {env} names"
+    if os.environ.get(CHECKOUT_BASES_VAR):
+        return (f"no {folder} checkout under ${CHECKOUT_BASES_VAR} "
+                f"({os.environ[CHECKOUT_BASES_VAR]})")
     shown = ", ".join(str(path) for path in looked[:3])
     more = f", and {len(looked) - 3} other places" if len(looked) > 3 else ""
     return (f"no {folder} checkout — set {env}=/path/to/{folder}, "

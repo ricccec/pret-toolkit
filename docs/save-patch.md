@@ -10,8 +10,8 @@ cross-map playtest surfaced them.
 `shared/overworld/`, which does the rebuild, and it is deliberately hack-neutral:
 it takes the tree's dialect as declared data and knows no hack's name. The code
 that calls it, and the per-tree dialects it is called with, live in the adapters
-— `hacks/vanilla/savefile.py` in `crystal-studio` and
-`hacks/prism/mapformat.py` in `pokeprism-devtools`. Paths below are given with
+— `crystal_studio/hacks/vanilla/savefile.py` in `crystal-studio` and
+`pokeprism_devtools/prism/maps/mapformat.py` in `pokeprism-devtools`. Paths below are given with
 that in mind, and named as `<repo>:<path>` where they cross out of this one.
 When code and doc disagree, the code wins and this doc is stale.
 
@@ -51,7 +51,7 @@ A patch that stands you on a map must therefore **reconstruct what
 
 ## The two halves of a patch
 
-`Save.stand_on` (`crystal-studio:hacks/vanilla/savefile.py`) does the whole
+`Save.stand_on` (`crystal-studio:crystal_studio/hacks/vanilla/savefile.py`) does the whole
 job — a caller of this distribution, not part of it:
 
 1. **Position** — write the four bytes into their saved SRAM mirror.
@@ -98,16 +98,18 @@ corruption of the primary silently reverts the player to the old map, so both
 copies are kept consistent exactly as the game leaves them
 (`Save._recompute_backup`).
 
-> The port is calibrated to prism, which is the outlier. The save-framing split
-> was re-derived against stock pokecrystal, not assumed from prism. See the
-> `port-calibrated-to-prism-outlier` memory.
+> The port was first written against prism, which turned out to be the outlier:
+> vanilla and polished agree with each other where prism differs. The
+> save-framing split was re-derived against stock pokecrystal, not assumed from
+> prism.
 
 ---
 
 ## The map rebuild — write-once, shared by both trees
 
 `shared/overworld/rebuild.py::rebuild_map` is the single entry both prism's
-`dev_server/apply.py` and vanilla's `savefile.py` call. It is engine-general
+`dev_server/apply.py` (in `pokeprism-devtools`) and vanilla's `savefile.py` (in
+`crystal-studio`) call. It is engine-general
 Gen-2: it touches only `sav.data` (a bytearray both trees' save objects expose),
 takes the `.sav` offsets it writes into as declared data (`SaveOffsets`), and
 reads formats through the caller's own `.sym`. It does **not** know which tree it
@@ -260,7 +262,7 @@ events) is a separate feature, not a fix, and it is not implemented.
 
 ---
 
-## The two bugs this session surfaced (and fixed)
+## Two sprite-VRAM bugs, and how they were found
 
 Both lived in `sprite_tiles` and both are the *same class*: the VRAM allocation
 placed an on-screen NPC on the wrong tile, so it rendered as another sprite
@@ -341,7 +343,7 @@ The readers are engine-general, but the *dialect* they read differs per tree and
 crosses the seam as declared data (`MapFormat`). Stock's values are the core's
 **defaults** (the base engine, the right calibration for the next family tree);
 prism overrides them in
-`pokeprism-devtools:hacks/prism/mapformat.py::PRISM_FORMAT`:
+`pokeprism-devtools:pokeprism_devtools/prism/maps/mapformat.py::PRISM_FORMAT`:
 
 | field | stock (default) | prism |
 |---|---|---|
@@ -356,7 +358,7 @@ Each of these was a real bug found while making stock work: prism's LZ
 decompressor returned garbage on stock's raw `.blk`; `coord_event=7` read zero
 objects on stock; the symbol names and connection pointer differed; and the
 outdoor overrun above. Getting these from a declared format (not a fork in the
-reader) is what keeps [[no-hack-branching-outside-mount]] intact.
+reader) is what keeps the reader free of any branch on which hack it is reading.
 
 ---
 
@@ -388,8 +390,7 @@ confirming a clean map. Two idioms:
   is shown *failing* before it passes, so a check that can't fail (the classic
   round-trip that only re-reads what the writer wrote) is caught. The original
   four-bytes-only boot round-tripped perfectly and was still wrong — a writer
-  that writes too little still round-trips what it does write. See the
-  `round-trip-to-verify-writer` memory.
+  that writes too little still round-trips what it does write.
 
 Tests are scripts, run with `./.venv/bin/python tests/<name>.py`.
 

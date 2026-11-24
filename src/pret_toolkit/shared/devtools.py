@@ -1,9 +1,9 @@
 """Create the tools' `.devtools/` corner, and hide it from the tree that owns it.
 
-Every tool here writes into `<hack>/.devtools/` — the map renders, the lint
-baseline, the new-map specs, the save backups, the studio's remembered target.
-Prism's own `.gitignore` lists `.devtools/`, but the two family trees the studio
-also drives — `pokecrystal` and `polishedcrystal` — track upstream, and a line
+Tools built on this library write their working files into `<hack>/.devtools/`:
+map renders, lint baselines, save backups. A tree can list `.devtools/` in its
+own `.gitignore`, but a checkout that tracks upstream, such as `pokecrystal` or
+`polishedcrystal`, cannot do so without carrying the edit: a line
 added to a `.gitignore` we do not own is a permanent local diff that conflicts on
 every rebase. Left to themselves those trees report `?? .devtools/` forever.
 

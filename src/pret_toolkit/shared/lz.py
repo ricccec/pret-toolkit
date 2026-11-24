@@ -1,7 +1,7 @@
-"""LZ decompressor for the pokeprism LZ format.
+"""LZ decompressor for the Gen-2 LZ format.
 
-This is a Python port of `home/decompress.asm`. The format spec is in the
-asm comments (lines 44-91). Summary:
+This is a Python port of `Decompress` in `home/decompress.asm`, whose comments
+are the format's spec; the command names are pokecrystal's. Summary:
 
 A command byte:
     %CCCNNNNN
@@ -9,14 +9,14 @@ A command byte:
         N: 5-bit length-1 (bits 0-4) — so N=0 means 1, N=31 means 32
 
 Commands:
-    0  LZ_DATA          — copy next n bytes literally
-    1  LZ_REPEAT_1      — repeat next byte n times
-    2  LZ_REPEAT_2      — alternate next 2 bytes n times
-    3  LZ_ZERO          — write zero n times
-    4  LZ_COPY_NORMAL   — copy n bytes from offset (output history)
-    5  LZ_COPY_FLIPPED  — same, but bit-reverse each byte
-    6  LZ_COPY_REVERSED — same, but copy bytes in reverse order
-    7  LZ_LONG          — extends length to 10 bits, re-parses command
+    0  LZ_LITERAL   — copy next n bytes literally
+    1  LZ_ITERATE   — repeat next byte n times
+    2  LZ_ALTERNATE — alternate next 2 bytes n times
+    3  LZ_ZERO      — write zero n times
+    4  LZ_REPEAT    — copy n bytes from offset (output history)
+    5  LZ_FLIP      — same, but bit-reverse each byte
+    6  LZ_REVERSE   — same, but copy bytes in reverse order
+    7  LZ_LONG      — extends length to 10 bits, re-parses command
 
 For LZ_LONG: the original command byte becomes:
     %111xxxyy yyyyyyyy
@@ -70,15 +70,15 @@ def decompress(data: bytes, offset: int = 0) -> tuple[bytes, int]:
             cmd = (cmd_byte >> 5) & 0x07
             length = (cmd_byte & 0x1F) + 1
 
-        if cmd == 0:  # LZ_DATA: literal
+        if cmd == 0:  # LZ_LITERAL: literal
             out += data[i : i + length]
             i += length
 
-        elif cmd == 1:  # LZ_REPEAT_1
+        elif cmd == 1:  # LZ_ITERATE
             out += bytes([data[i]]) * length
             i += 1
 
-        elif cmd == 2:  # LZ_REPEAT_2
+        elif cmd == 2:  # LZ_ALTERNATE
             a, b = data[i], data[i + 1]
             i += 2
             out += bytes(a if k & 1 == 0 else b for k in range(length))
@@ -86,7 +86,7 @@ def decompress(data: bytes, offset: int = 0) -> tuple[bytes, int]:
         elif cmd == 3:  # LZ_ZERO
             out += bytes(length)
 
-        elif cmd in (4, 5, 6):  # LZ_COPY_*
+        elif cmd in (4, 5, 6):  # LZ_REPEAT/FLIP/REVERSE
             byte1 = data[i]
             i += 1
             if byte1 & 0x80:
@@ -107,7 +107,7 @@ def decompress(data: bytes, offset: int = 0) -> tuple[bytes, int]:
                     f"offset in stream={i - 2:#x}"
                 )
 
-            if cmd == 4:  # LZ_COPY_NORMAL
+            if cmd == 4:  # LZ_REPEAT
                 # NB: src may equal len(out), in which case the copy reads
                 # bytes being written — preserve asm semantics (read [de],
                 # write [hli], inc de).
@@ -115,12 +115,12 @@ def decompress(data: bytes, offset: int = 0) -> tuple[bytes, int]:
                     out.append(out[src])
                     src += 1
 
-            elif cmd == 5:  # LZ_COPY_FLIPPED
+            elif cmd == 5:  # LZ_FLIP
                 for _ in range(length):
                     out.append(_bit_reverse(out[src]))
                     src += 1
 
-            elif cmd == 6:  # LZ_COPY_REVERSED
+            elif cmd == 6:  # LZ_REVERSE
                 for _ in range(length):
                     out.append(out[src])
                     src -= 1

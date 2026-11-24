@@ -1,13 +1,20 @@
 # pret-toolkit
 
-Python tools to read, edit, build and run a [pret](https://github.com/pret)
-Game Boy Gen-2 disassembly — Pokémon G/S/C, Polished Crystal, Prism, or your own
-hack of one.
+Two command-line tools and a Python library for working on a
+[pret](https://github.com/pret)-style Game Boy disassembly: pokecrystal, and the
+hacks built on it such as Polished Crystal and Prism.
 
-It knows about *pret*, not about any one hack. A repo root is recognised by its
-signature rather than its name (a `Makefile` and a `main.asm` in the same
-folder), the ROMs a tree can build are read out of its own `Makefile`, and
-nothing here branches on which hack you are pointing it at.
+- **`pret-sym`** looks a label up in a built ROM's symbol table, or tells you
+  which label an address belongs to.
+- **`pret-usage`** shows how full each ROM bank is, what is in it, and where
+  there is room for new data.
+- **The library**, `pret_toolkit`, is the groundwork for writing your own tools
+  that read, edit, build and run such a tree.
+
+None of it is tied to one hack. A tree is recognised by its shape (a `Makefile`
+and a `main.asm` in the same folder), the ROMs it can build are read from its own
+`Makefile`, and where trees differ, the caller says how. It is used on
+pokecrystal, Polished Crystal and Prism.
 
 ## Install
 
@@ -18,37 +25,41 @@ pip install git+https://github.com/ricccec/pret-toolkit
 Not on PyPI yet. Requires Python 3.11 or newer. No dependencies outside the
 standard library.
 
-## The two commands
+## The commands
+
+Run them from anywhere inside a tree you have built with `make`:
 
 ```bash
-pret-sym   <symbol>     # where a label lives: bank, address, source file
-pret-usage              # what each ROM bank holds, and what is free
+pret-sym TryLoadSaveFile     # 05:4ea5 TryLoadSaveFile
+pret-sym --addr 05:4ea5      # which label is at this address
+pret-usage                   # ROM and RAM usage at a glance
+pret-usage free              # the banks with the most room
 ```
 
-`docs/commands.md` is the reference for both.
+`docs/commands.md` is the full reference for both.
 
 ## The library
 
-```python
-from pretkit.shared import paths
+The library is for writing tools of your own: a map viewer, a linter, an
+editor, a script that patches a save. It does the parts every such tool needs
+and none of them should have to write again:
 
-root = paths.find_repo_root()           # walk up for the pret signature
-rom  = paths.find_built_rom(root)       # the ROM its Makefile says it builds
-sym  = paths.find_built_sym(root)       # the .sym beside it
-```
+- **Finding things** (`shared`): a tree's root, its built ROMs and their `.sym`
+  and `.map` files, parsers for those and for the asm's enums, plus running
+  `make` and SameBoy.
+- **Editing the asm source** (`asmedit`): changes that must keep several files
+  consistent, such as adding a map or deleting a warp. Each comes back as an
+  `Edit` you can show as a diff before anything is written.
+- **Standing a save on a map** (`shared.overworld`): rewriting a `.sav` so the
+  game boots on a chosen map, with the right tiles and people around the player.
 
-The import name is `pretkit`, and it is a [PEP 420][pep420] namespace package.
-That matters because three other distributions extend the same namespace —
-`crystal-studio-plugin-api`, `crystal-studio` and `pokeprism-devtools` — so
-installing any combination of them gives you one package spanning several source
-trees. Imports point downward only: this package imports nothing from the other
-three.
+The API is not stable before 1.0, so pin a commit. `docs/library.md` maps every
+module, walks through an edit, and lists what you have to declare to point the
+library at a hack of your own.
 
-[pep420]: https://peps.python.org/pep-0420/
-
-Reference material lives in `docs/`: `save-patch.md` for the save-file and
-overworld engine, and `blockdata-plan.md` for the asm cross-references behind
-the map rebuild.
+Two larger tools are built on it: `crystal-studio`, a terminal IDE for these
+disassemblies, and `pokeprism-devtools`, which adds Prism support to it along with
+Prism's own command-line tools.
 
 ## Tests
 
@@ -70,7 +81,7 @@ Each tree is pinned to the one commit the tests were written against, in
 - `polishedcrystal` — [Rangi42/polishedcrystal](https://github.com/Rangi42/polishedcrystal) at `a79dd2a`
 
 `pret-test` checks out a clean copy of each pinned commit into
-`~/.cache/pretkit/` — taken from your own checkout when it has the commit, from
+`~/.cache/pret-toolkit/` — taken from your own checkout when it has the commit, from
 the URL otherwise — so neither your edits nor your branch change the result.
 Your checkout is found the way every command here finds one: `$<NAME>_TREE`
 (`$POKECRYSTAL_TREE`, say), or a conventional place such as `~/code/<name>`.

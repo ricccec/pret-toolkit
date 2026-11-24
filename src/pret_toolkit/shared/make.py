@@ -2,15 +2,13 @@
 
 Nothing here is any one hack's. `rgbds` and `make` are the toolchain of the whole
 pokecrystal family, so "run `make -j<n> <target>` and show the lines that matter"
-reads the same whether the target is `prism` or `pokecrystal.gbc`. Each hack's
-:class:`~..contract.Plays` decides *which* target and *what* a built ROM then
-means; the running of it lands here, once, so a second play adapter does not carry
-a second copy of a subprocess loop to drift away from the first.
+reads the same whether the target is `prism` or `pokecrystal.gbc`. The caller
+decides *which* target and what a built ROM then means; the running of it lives
+here, once, so no caller carries its own copy of a subprocess loop.
 
-Deliberately free of the seam's :class:`~..contract.PlayError`: this layer is
-below `hacks/`, so it must not import it. A caller that wants a target validated
-or a job count checked does that above, in its own adapter, where the seam's word
-is in scope; here a build that fails is just ``False``.
+Raises nothing of any caller's, since this layer sits below everything that
+uses it: a caller that wants a target validated or a job count checked does that
+itself, and here a build that fails is just ``False``.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 #: A line of `make` output worth stopping on when a build is run *quiet*. The
-#: studio's version of the pipe a person reaches for by hand —
+#: pipe a person reaches for by hand —
 #: `make ... 2>&1 | grep -E ': (error|fatal):|^make: \*\*\*'` — kept here, out of
 #: any view, so it can be tested without a compiler.
 #:

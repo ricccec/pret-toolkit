@@ -22,9 +22,8 @@ a differently-shaped question (every `connection` line in a file, a
 parser serving all of them would be harder to read than any of them.
 
 Kept in `asmedit/` and free of any `hacks.*` import on purpose, the same reason
-`editvocab` is: this is rgbds macro syntax, not any one hack's layout, so both
-prism's `mapedit` and the family's own header editor reach it without either
-dragging the other across the seam.
+`editvocab` is: this is rgbds macro syntax, not any one hack's layout, so every
+tree's header editor can share it without depending on another tree's code.
 """
 
 from __future__ import annotations

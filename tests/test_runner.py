@@ -26,9 +26,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from pretkit.shared import paths
-from pretkit.testing import runner, suite as suite_module
-from pretkit.testing.results import FAIL, FIXED, OK, RED, Result, classify_exit_code
+from pret_toolkit.shared import paths
+from pret_toolkit.testing import runner, suite as suite_module
+from pret_toolkit.testing.results import FAIL, FIXED, OK, RED, Result, classify_exit_code
 
 _failures = 0
 
@@ -61,7 +61,7 @@ sys.exit(1)
 #: Prints what the tree it finds says about itself, so which tree a test was
 #: shown is observable rather than inferred.
 READS_TREE = """
-from pretkit.shared import paths
+from pret_toolkit.shared import paths
 tree = paths.find_checkout("madeupgame")
 version = tree / "VERSION"
 print("version=" + version.read_text().strip() if version.exists() else "  --   skipping: no tree")

@@ -14,9 +14,7 @@ It is engine-general Gen-2: the position it rebuilds *for* and the `.sav` offset
 it writes *into* both arrive as declared data (:class:`SaveOffsets`), and the
 formats it reads are stock pokecrystal's through the caller's own `SymFile`. It
 touches only ``sav.data`` (a bytearray both trees' save objects expose), so a
-prism `SaveFile` and a vanilla `Save` drive the same code. Extracted from prism's
-`dev_server/apply.py`, where this logic first paid off, so a second tree does not
-re-implement it. Which checksums to recompute afterwards is *not* here — that is
+prism `SaveFile` and a vanilla `Save` drive the same code. Which checksums to recompute afterwards is *not* here — that is
 the one thing the trees spell differently, and it stays in each adapter.
 """
 

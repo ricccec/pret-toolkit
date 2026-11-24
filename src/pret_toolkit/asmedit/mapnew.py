@@ -246,7 +246,7 @@ def read_grid(blk: Path, height: int, width: int) -> bytes:
     leaves the engine reading whatever is next in the bank as terrain.
 
     Public because the new-map *form* draws through it as well as writing
-    through it (`studio/mapadd.AddMap.sketch`). One rule, read once: a grid the
+    through it (`crystal_studio/mapadd.AddMap.sketch`). One rule, read once: a grid the
     picture refused cannot then be written, and a grid that drew is the grid
     that lands. Two copies of this arithmetic would eventually disagree, and
     the disagreement would be invisible — both sides assemble.

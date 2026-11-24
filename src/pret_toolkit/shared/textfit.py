@@ -8,9 +8,8 @@ a row against its last row. Those two sums are engine-agnostic; everything that
 feeds them — which tokens a byte is, how wide a control code expands, where a
 macro moves the cursor — is not, and stays in each tree's own reader.
 
-A Gen-2 fact rather than any tree's, which is why it is here: it lived beside
-prism's rules while prism's linter was its only caller, and a family linter that
-imports it there imports prism's CLI to get two subtractions.
+A Gen-2 fact rather than any tree's, which is why it is here and not in either
+tree's linter.
 """
 
 from __future__ import annotations

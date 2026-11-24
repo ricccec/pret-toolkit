@@ -5,8 +5,8 @@ The reconstruction that keeps wScreenSave consistent with (wMapGroup,
 wMapNumber, wXCoord, wYCoord) when a save is patched — the tiles half of a map
 rebuild. The map-header and block-data formats are stock pokecrystal's, read
 through whichever tree's `SymFile` the caller passes, so the module names no
-hack and belongs to none. See docs/blockdata-plan.md for the data-flow and asm
-cross-references.
+hack and belongs to none. `docs/save-patch.md` describes the rebuild this is the
+first step of.
 
 Glossary:
     - Bank 0 is mapped at $0000-$3FFF; banks 1+ swap in at $4000-$7FFF.
@@ -24,7 +24,7 @@ from pathlib import Path
 
 from .. import lz, symfile
 
-# Sizes derived from the asm — see docs/blockdata-plan.md.
+# Sizes derived from the asm.
 MAP_HEADER_SIZE = 9     # 1 + 1 + 1 + 2 + 1 + 1 + 1 + 1 + 1
 SECOND_MAP_HEADER_SIZE = 12
 SCREEN_SAVE_ROWS = 5    # outer-loop count in SaveScreen_LoadNeighbor (c)
@@ -53,8 +53,7 @@ class MapFormat:
     """How a Gen-2 tree lays its map data out in ROM — the facts that differ
     between the trees, so the reader itself names none of them.
 
-    Defaults are stock pokecrystal's, re-derived from its own source (not assumed
-    from prism, which the port was first written against — see the branch memory):
+    Defaults are stock pokecrystal's, read from its own source:
     block data is raw `.blk` bytes (`data/maps/blocks.asm` INCBINs, one byte per
     block); the event-header records are `warp_event` 5, `coord_event` 8
     (`db scene,y,x` + filler + `dw script` + `dw 0`), `bg_event` 5; the overworld
@@ -351,8 +350,7 @@ def map_connections(
     is always the overworld grid: `strip location - wOverworldMap[Blocks]` (stride
     = this map's width + 6). The *source* base differs by tree
     (`format.connection_source`): the neighbour's own block data (stock, so it is
-    read from the neighbour's header) or a shared decompress buffer (prism). See
-    docs/blockdata-plan.md.
+    read from the neighbour's header) or a shared decompress buffer (prism).
     """
     rom = rom_path.read_bytes()
     hdr = _headers(rom, syms, group, map_id, name)
@@ -470,7 +468,7 @@ def compute_screen_save(
     pairs from `map_connections`, with each neighbour's blockdata loaded — to
     overlay the neighbouring maps' edge blocks exactly as FillMapConnections
     would have, so an edge position on a connected map reads the real border
-    instead of void. See docs/blockdata-plan.md.
+    instead of void.
     """
     if not (0 <= x < 256 and 0 <= y < 256):
         raise ValueError(f"(x, y) = ({x}, {y}) out of byte range")

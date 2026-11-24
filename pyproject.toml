@@ -14,20 +14,16 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.scripts]
-pret-sym   = "pretkit.sym_lookup:main"
-pret-usage = "pretkit.usage:main"
-pret-test  = "pretkit.testing.runner:main"
+pret-sym   = "pret_toolkit.sym_lookup:main"
+pret-usage = "pret_toolkit.usage:main"
+pret-test  = "pret_toolkit.testing.runner:main"
 
-# `namespaces = true` is the whole split: `pretkit` is a
-# PEP 420 namespace package with no `__init__.py`, so these
-# distributions install side by side and answer as one package.
 [project.urls]
 Source = "https://github.com/ricccec/pret-toolkit"
 Issues = "https://github.com/ricccec/pret-toolkit/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-namespaces = true
 
 [tool.pret-test]
 

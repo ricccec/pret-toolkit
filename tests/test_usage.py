@@ -29,8 +29,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from pretkit import usage  # noqa: E402
-from pretkit.shared.mapfile import MapFile  # noqa: E402
+from pret_toolkit import usage  # noqa: E402
+from pret_toolkit.shared.mapfile import MapFile  # noqa: E402
 
 _failures = 0
 

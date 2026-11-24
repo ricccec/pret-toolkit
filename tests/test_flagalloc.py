@@ -27,8 +27,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from pretkit.shared import paths  # noqa: E402
-from pretkit.asmedit import flagalloc as F  # noqa: E402
+from pret_toolkit.shared import paths  # noqa: E402
+from pret_toolkit.asmedit import flagalloc as F  # noqa: E402
 
 #: The two trees whose flag file this module models. Both are read, not one:
 #: they agree on the format and disagree on every number in it, so a rule

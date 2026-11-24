@@ -1,10 +1,8 @@
-"""The unit of change every asm editor in this repo speaks: :class:`Edit`.
+"""The unit of change every asm editor speaks: :class:`Edit`.
 
 An editor never writes as a side effect. It returns a full-file-text Edit that
 the caller can diff (dry run), stack with other edits, and apply in one go —
-which is what makes the writers idempotent and previewable. ``mapfit.mapwire``
-re-exports both names, so ``mapwire.Edit`` stays the canonical spelling for
-map-wiring callers.
+which is what makes the writers idempotent and previewable.
 
 Because an Edit carries the *whole* file, two of them built against the same
 starting text and then applied one after the other do not merge — the second

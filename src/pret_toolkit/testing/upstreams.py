@@ -23,8 +23,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-#: Overrides where the cache lives. Otherwise `$XDG_CACHE_HOME/pretkit`, and
-#: `~/.cache/pretkit` when that is unset too.
+#: Overrides where the cache lives. Otherwise `$XDG_CACHE_HOME/pret-toolkit`, and
+#: `~/.cache/pret-toolkit` when that is unset too.
 CACHE_VAR = "PRETKIT_CACHE"
 
 #: A full SHA-1 commit id. A short one is refused: it is a prefix that can stop
@@ -53,7 +53,7 @@ def find_cache_root() -> Path:
         return Path(os.environ[CACHE_VAR]).expanduser()
     xdg = os.environ.get("XDG_CACHE_HOME")
     base = Path(xdg).expanduser() if xdg else Path.home() / ".cache"
-    return base / "pretkit"
+    return base / "pret-toolkit"
 
 
 def find_snapshot_path(pin: Pin) -> Path:

@@ -2,12 +2,12 @@
 """Query a built pret ROM's .sym file by label or address.
 
 Usage:
-    sym-lookup LABEL                 # exact match → prints address
-    sym-lookup --addr BB:AAAA        # reverse: address → label(s) at or before
-    sym-lookup --prefix STR          # all labels starting with STR
-    sym-lookup --search STR          # case-insensitive substring search
-    sym-lookup --rom NAME LABEL      # pick which build, when a tree makes several
-    sym-lookup --region SRAM STR     # filter prefix/search results by region
+    pret-sym   LABEL                 # exact match → prints address
+    pret-sym   --addr BB:AAAA        # reverse: address → label(s) at or before
+    pret-sym   --prefix STR          # all labels starting with STR
+    pret-sym   --search STR          # case-insensitive substring search
+    pret-sym   --rom NAME LABEL      # pick which build, when a tree makes several
+    pret-sym   --region SRAM STR     # filter prefix/search results by region
                                      # (regions: ROM0, ROMX, VRAM, SRAM, WRAM0,
                                      #  WRAMX, OAM, IO, HRAM, ECHO, UNUSED)
 

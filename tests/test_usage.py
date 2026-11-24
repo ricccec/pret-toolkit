@@ -5,12 +5,10 @@ Hermetic — a synthetic .map in a temp dir, no ROM/build.
 
     python tests/test_usage.py
 
-`usage` was the one CLI package with no test at all, and measured by line its
-445 LOC ran 0% of themselves (docs/refactor-phase-1-STATE.md). Its eight
-commands print rather than return, so nothing about them was pinned. These
-goldens are recorded from the behaviour as it stood before the package was
-split, which is the only thing that can say afterwards whether the split moved
-code or changed it.
+`usage`'s eight commands print rather than return, so their output is the
+only thing there is to pin. These goldens are recorded from that behaviour,
+which is what lets a change say afterwards whether it moved code or changed
+it.
 
 Golden output is deliberate. A test asserting "the summary mentions three
 banks" would survive a rewrite of every line it prints; these do not.

@@ -1,6 +1,6 @@
 """Where in a family map file a block goes — the three regions, and their order.
 
-Every write Phase 8 needs is "put these lines in the right part of this file",
+Every block writer's job is "put these lines in the right part of this file",
 and a family map file has three parts. `add_entry` already handles one of them
 (the event lists); this module is the other two, and the reason it exists as
 mechanism rather than a helper is that **the parts are not in the same order in

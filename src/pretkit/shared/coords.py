@@ -44,7 +44,7 @@ class Tile(NamedTuple):
     ``object_event x, y``. Whoever parses an (x, y) macro family normalises
     *here*, at construction, by keyword — ``Tile(y=…, x=…)`` — so a swapped pair
     is a mistake you can grep for rather than a map whose NPCs all stand
-    transposed. See docs/polished-crystal-feasibility.md, assumption #4.
+    transposed.
 
     A ``Tile`` is a tuple, equal to the bare ``(y, x)`` pairs older callers
     still build — the type adds names, not incompatibility.

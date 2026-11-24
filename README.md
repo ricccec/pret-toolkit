@@ -12,10 +12,11 @@ nothing here branches on which hack you are pointing it at.
 ## Install
 
 ```bash
-pip install pret-toolkit
+pip install git+https://github.com/ricccec/pret-toolkit
 ```
 
-Requires Python 3.10 or newer. No dependencies outside the standard library.
+Not on PyPI yet. Requires Python 3.11 or newer. No dependencies outside the
+standard library.
 
 ## The two commands
 
@@ -46,8 +47,8 @@ three.
 [pep420]: https://peps.python.org/pep-0420/
 
 Reference material lives in `docs/`: `save-patch.md` for the save-file and
-overworld engine, `bank-usage-plan.md` and `blockdata-plan.md` for the design
-arguments behind two of the harder pieces.
+overworld engine, and `blockdata-plan.md` for the asm cross-references behind
+the map rebuild.
 
 ## Tests
 
@@ -73,6 +74,11 @@ To run them, point the suite at a checkout you have —
 — or check them out somewhere conventional: `~/code/<name>`, `~/src/<name>`, or
 one grouping directory below either (`~/code/<anything>/<name>`), which is how
 the suite finds them with nothing configured.
+
+## Disclaimer
+
+Not affiliated with or endorsed by Nintendo, Game Freak, Creatures or The
+Pokémon Company. Pokémon is a trademark of Nintendo.
 
 ## Licence
 

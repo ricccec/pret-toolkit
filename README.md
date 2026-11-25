@@ -1,104 +1,124 @@
 # pret-toolkit
 
-Two command-line tools and a Python library for working on a
-[pret](https://github.com/pret)-style Game Boy disassembly: pokecrystal, and the
-hacks built on it such as Polished Crystal and Prism.
+**pret-toolkit** is a Python library for building development tools for Pokémon Gen II disassemblies.
 
-- **`pret-sym`** looks a label up in a built ROM's symbol table, or tells you
-  which label an address belongs to.
-- **`pret-usage`** shows how full each ROM bank is, what is in it, and where
-  there is room for new data.
-- **The library**, `pret_toolkit`, is the groundwork for writing your own tools
-  that read, edit, build and run such a tree.
+It provides reusable utilities for navigating [pret](https://github.com/pret)-style repositories, inspecting compiled ROMs, parsing symbol tables, and safely editing assembly source files. Whether you're building a map editor, a custom linter, or a complete IDE, pret-toolkit provides the foundations without having to reinvent them.
 
-None of it is tied to one hack. A tree is recognised by its shape (a `Makefile`
-and a `main.asm` in the same folder), the ROMs it can build are read from its own
-`Makefile`, and where trees differ, the caller says how. It is used on
-pokecrystal, Polished Crystal and Prism.
+It works with the original [pokecrystal](https://github.com/pret/pokecrystal), an open-source disassembly of *Pokémon Crystal* maintained by the [pret](https://github.com/pret) group, as well as hacks and derivatives such as [polishedcrystal](https://github.com/Rangi42/polishedcrystal) and [pokeprism](https://github.com/ricccec/pokeprism).
 
-## Install
+This repository also includes two command-line tools built with the library:
+
+- **`pret-usage`** gives you an overview of ROM and RAM usage: how full each bank is, what's stored in it, and where there's room for new data.
+- **`pret-sym`** resolves assembly labels to addresses in your built ROM, or tells you which label belongs to a given address.
+
+## Features
+
+- ROM and RAM bank usage analysis.
+- Symbol table lookup and address resolution.
+- Parsing of assembly enums, the map listing, and the ROMs a repository's `Makefile` builds.
+- Structured editing of assembly source files.
+- Overworld and save-file manipulation.
+- Integration with RGBDS builds and SameBoy.
+
+## Installation
 
 ```bash
-pip install git+https://github.com/ricccec/pret-toolkit
+pip install git+https://github.com/ricccec/pret-toolkit.git
 ```
 
-Not on PyPI yet. Requires Python 3.11 or newer. No dependencies outside the
-standard library.
+The package is not yet published on PyPI.
 
-## The commands
+**Requirements:** Python 3.11 or newer. No dependencies outside the standard library.
 
-Run them from anywhere inside a tree you have built with `make`:
+## Command-line tools
+
+Both commands can be run from anywhere inside a pret-style repository. You only need to build the ROM first by running `make`.
 
 ```bash
-pret-sym TryLoadSaveFile     # 05:4ea5 TryLoadSaveFile
-pret-sym --addr 05:4ea5      # which label is at this address
 pret-usage                   # ROM and RAM usage at a glance
-pret-usage free              # the banks with the most room
+pret-usage free              # the banks with the most free space
+pret-sym TryLoadSaveFile     # 05:4ea5 TryLoadSaveFile
+pret-sym --addr 05:4ea5      # which label belongs to this address
 ```
 
-`docs/commands.md` is the full reference for both.
+See [docs/commands.md](docs/commands.md) for the full reference.
 
-## The library
+## Python library
 
-The library is for writing tools of your own: a map viewer, a linter, an
-editor, a script that patches a save. It does the parts every such tool needs
-and none of them should have to write again:
+The library provides the foundations for reading and editing files in a pret-style Gen II repository, so you can focus on building your own tools instead of reinventing common functionality.
 
-- **Finding things** (`shared`): a tree's root, its built ROMs and their `.sym`
-  and `.map` files, parsers for those and for the asm's enums, plus running
-  `make` and SameBoy.
-- **Editing the asm source** (`asmedit`): changes that must keep several files
-  consistent, such as adding a map or deleting a warp. Each comes back as an
-  `Edit` you can show as a diff before anything is written.
-- **Standing a save on a map** (`shared.overworld`): rewriting a `.sav` so the
-  game boots on a chosen map, with the right tiles and people around the player.
+It can help you build a map viewer, a custom linter, an editor for game objects or NPCs, and much more.
 
-The API is not stable before 1.0, so pin a commit. `docs/library.md` maps every
-module, walks through an edit, and lists what you have to declare to point the
-library at a hack of your own.
+The main components are:
 
-Two larger tools are built on it: `crystal-studio`, a terminal IDE for these
-disassemblies, and `pokeprism-devtools`, which adds Prism support to it along with
-Prism's own command-line tools.
+- **Finding things** ([`shared`](src/pret_toolkit/shared)) provides utilities to locate the repository root, built ROMs and their `.sym` and `.map` files. It also parses symbol tables and assembly enums, and provides helpers for running `make` and SameBoy.
+- **Editing assembly source** ([`asmedit`](src/pret_toolkit/asmedit)) provides utilities for making changes that must keep multiple files consistent, such as adding a map or deleting a warp. Each operation produces an `Edit` object that you can inspect or display as a diff before applying any changes to disk.
+- **Overworld and save manipulation** ([`shared.overworld`](src/pret_toolkit/shared/overworld)) makes it straightforward to patch a `.sav` file so the game boots on a chosen map.
 
-## Tests
+See [docs/library.md](docs/library.md) for a deeper dive into the library, including the custom extensions you need to implement to make it work with your own hack.
+
+> **Note:** The API is not stable before 1.0. Pin a specific commit when depending on pret-toolkit.
+
+## Built with pret-toolkit
+
+Two larger projects already use the library:
+
+- **[Crystal Studio](https://github.com/ricccec/crystal-studio)** — A terminal IDE for pret-style disassemblies.
+- **[pokeprism-devtools](https://github.com/ricccec/pokeprism-devtools)** — Adds Pokémon Prism support to Crystal Studio, along with Prism's own command-line tools.
+
+Both can serve as reference implementations when building your own tools.
+
+## Testing
+
+The tests are plain scripts rather than pytest tests: each prints `ok` or `FAIL` lines and exits with a non-zero status on failure.
+
+`pret-test` ships with `pret-toolkit`, so it's available on your `$PATH` once the package is installed. Run it from anywhere inside this repository:
 
 ```bash
-pret-test               # the whole suite, against the pinned game trees
-pret-test --worktree    # the same, against your own checkouts, edits and all
+pret-test               # the whole suite, against pinned upstream versions
 ```
 
-Plain scripts, not pytest: each prints `ok`/`FAIL` lines and exits non-zero.
-`pret-test` ships with `pret-toolkit`, so it is on `$PATH` once this repo is
-installed; run it from anywhere inside the repo.
+### Pinned upstream repositories
 
-Several read a **real disassembly** rather than a fixture, because what is being checked
-is whether the reader agrees with an actual tree.
-Each tree is pinned to the one commit the tests were written against, in
-`pyproject.toml` under `[tool.pret-test.upstreams]`:
+Several tests need a local copy of a **real disassembly** rather than a fixture. This ensures the library works with actual repositories and hasn't drifted from their structure.
+
+Each upstream repository is pinned to the commit the tests were written against, in `pyproject.toml` under `[tool.pret-test.upstreams]`:
 
 - `pokecrystal` — [pret/pokecrystal](https://github.com/pret/pokecrystal) at `31880ea`
 - `polishedcrystal` — [Rangi42/polishedcrystal](https://github.com/Rangi42/polishedcrystal) at `a79dd2a`
 
-`pret-test` checks out a clean copy of each pinned commit into
-`~/.cache/pret-toolkit/` — taken from your own checkout when it has the commit, from
-the URL otherwise — so neither your edits nor your branch change the result.
-Your checkout is found the way every command here finds one: `$<NAME>_TREE`
-(`$POKECRYSTAL_TREE`, say), or a conventional place such as `~/code/<name>`.
-`pret-test --fetch` fetches them and prints where they are. The copies hold no
-build output, so checks that need a ROM skip until you run `make` in one. A
-skipped check is counted and reported rather than passed, and `--strict` fails
-the run on one.
+If you need the library or its tools to work with newer versions of either repository, update the corresponding commit in `pyproject.toml` and make sure everything still works.
 
-`--worktree` is for seeing what your own edits do. A test that fails there
-because of an edit in *your* tree is a fact about your checkout: record it in
-`.known-red.json`, which is git-ignored and counts only in `--worktree` runs.
+The test runner checks out clean copies of the pinned commits into `~/.cache/pret-toolkit/`. It uses your own checkout if it already contains the required commit; otherwise, it fetches the repository from its upstream URL.
+
+These copies are independent of your working trees, so neither your local edits nor your current branch affect the test results.
+
+Run:
+
+```bash
+pret-test --fetch
+```
+
+to fetch the pinned repositories and print their locations.
+
+The cached copies contain no build output, so tests that require a built ROM are skipped until you run `make` in the corresponding repository. Skipped tests are counted and reported rather than treated as passed; use `--strict` to fail the run if any tests are skipped.
+
+### Testing your own worktrees
+
+You can also run the tests against your own checkouts:
+
+```bash
+pret-test --worktree    # the whole suite, against your own checkouts and edits
+```
+
+Your checkout is located using the same rules as the other commands: the corresponding environment variable (e.g. `$POKECRYSTAL_TREE`) or a conventional location such as `~/code/pokecrystal`.
+
+`--worktree` is useful for checking how your own changes affect compatibility. If a test fails because of an intentional edit in your tree, you can record it in `.known-red.json`. This file is git-ignored, and its entries only apply to `--worktree` runs.
 
 ## Disclaimer
 
-Not affiliated with or endorsed by Nintendo, Game Freak, Creatures or The
-Pokémon Company. Pokémon is a trademark of Nintendo.
+This project is not affiliated with or endorsed by Nintendo, Game Freak, Creatures, or The Pokémon Company. Pokémon is a trademark of Nintendo.
 
-## Licence
+## License
 
-MIT. See `LICENSE`.
+MIT. See [LICENSE](LICENSE).
